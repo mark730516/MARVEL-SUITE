@@ -1,0 +1,128 @@
+import { IntroSettings } from './types';
+
+export const FONTS = [
+  { label: 'Anton (英文標準)', value: '"Anton", sans-serif' },
+  { label: 'Archivo Black (粗體)', value: '"Archivo Black", sans-serif' },
+  { label: 'Black Ops (軍事風)', value: '"Black Ops One", cursive' },
+  { label: 'Bebas Neue (高窄)', value: '"Bebas Neue", sans-serif' },
+  { label: 'Noto Sans TC (思源黑體)', value: '"Noto Sans TC", sans-serif' },
+  { label: 'Oswald (簡潔)', value: '"Oswald", sans-serif' },
+  { label: 'Righteous (現代)', value: '"Righteous", cursive' },
+];
+
+export const ANIMATION_PRESETS = [
+  {
+    id: 'classic',
+    label: '經典 (Classic)',
+    settings: {
+      duration: 4000,
+      stagger: 200,
+      speed: 80,
+      jitter: 5,
+      startScale: 100,
+      slotEffect: true,
+      tilt: false,
+      solidFinal: true,
+      offsetY: 0
+    }
+  },
+  {
+    id: 'rapid',
+    label: '極速 (Rapid)',
+    settings: {
+      duration: 2000,
+      stagger: 80,
+      speed: 40,
+      jitter: 8,
+      startScale: 150,
+      slotEffect: true,
+      tilt: true,
+      solidFinal: true,
+      offsetY: 0
+    }
+  },
+  {
+    id: 'slow',
+    label: '慢燃 (Slow)',
+    settings: {
+      duration: 6000,
+      stagger: 400,
+      speed: 120,
+      jitter: 2,
+      startScale: 80,
+      slotEffect: true,
+      tilt: false,
+      solidFinal: true,
+      offsetY: 0
+    }
+  },
+  {
+    id: 'chaos',
+    label: '暴走 (Chaos)',
+    settings: {
+      duration: 3500,
+      stagger: 150,
+      speed: 30,
+      jitter: 20,
+      startScale: 200,
+      slotEffect: true,
+      tilt: true,
+      solidFinal: false,
+      offsetY: 0
+    }
+  },
+  {
+    id: 'clean',
+    label: '簡約 (Clean)',
+    settings: {
+      duration: 3000,
+      stagger: 0,
+      speed: 100,
+      jitter: 0,
+      startScale: 110,
+      slotEffect: false,
+      tilt: false,
+      solidFinal: true,
+      offsetY: 0
+    }
+  }
+];
+
+export const DEFAULT_INTRO_SETTINGS: IntroSettings = {
+  text: 'MARVEL',
+  font: '"Anton", sans-serif',
+  bgColor: '#ffffff',
+  textColor: '#000000',
+  bgOpacity: 1,
+  
+  textSize: 15,
+  spacing: -0.05,
+  depth: 0,
+  glow: 0,
+  shadowColor: '#555555',
+  
+  subEnabled: false,
+  subText: 'STUDIOS',
+  subSize: 5,
+  subSpacing: 0.5,
+  subMargin: 1,
+  
+  slotEffect: true,
+  tilt: false,
+  tiltAuto: false,
+  duration: 4000,
+  stagger: 200,
+  solidFinal: true,
+  speed: 80,
+  jitter: 5,
+  startScale: 100,
+  offsetY: 0,
+
+  bgImage: null,
+  bgDimmer: 0.5,
+  bgBlur: 0,
+  halftone: false,
+  cineBars: false,
+  audioUrl: null,
+  volume: 1,
+};
