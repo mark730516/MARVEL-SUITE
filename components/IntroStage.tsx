@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useEffect, useRef, useMemo, useState } from 'react';
 import { IntroSettings, IntroAsset, CharMapping } from '../types';
 
 interface IntroStageProps {
   settings: IntroSettings;
+  onUpdateSettings: (vals: Partial<IntroSettings>) => void;
   assets: IntroAsset[];
   mappings: CharMapping[]; // We use this for the slot machine finish state
   isPlaying: boolean;
@@ -11,7 +12,7 @@ interface IntroStageProps {
   onFinish?: () => void;
 }
 
-export const IntroStage: React.FC<IntroStageProps> = ({ settings, assets, mappings, isPlaying, manualTime, onFinish }) => {
+export const IntroStage: React.FC<IntroStageProps> = ({ settings, onUpdateSettings, assets, mappings, isPlaying, manualTime, onFinish }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const logoFrontRef = useRef<HTMLDivElement>(null);
   const logoShadowRef = useRef<HTMLDivElement>(null);
@@ -33,6 +34,98 @@ export const IntroStage: React.FC<IntroStageProps> = ({ settings, assets, mappin
       audioRef.current.currentTime = 0;
     }
   }, [isPlaying, settings.audioUrl, settings.volume, manualTime]);
+
+  // --- 3D Tilt Logic (Drag to Rotate) ---
+  const [isDragging, setIsDragging] = useState(false);
+  // We use a ref for the visual state during drag to prevent React render lag
+  const tiltRef = useRef({ x: settings.tiltAngleX, y: settings.tiltAngleY });
+
+  // Sync ref with settings if settings change externally (e.g. Reset button)
+  useEffect(() => {
+      if (!isDragging) {
+          tiltRef.current = { x: settings.tiltAngleX, y: settings.tiltAngleY };
+      }
+  }, [settings.tiltAngleX, settings.tiltAngleY, isDragging]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    if (!settings.tilt) {
+        container.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg)';
+        return;
+    }
+
+    let rafId: number;
+    
+    if (settings.tiltAuto) {
+        // Auto Float Mode (Sine Wave)
+        const startTime = Date.now();
+        const animateTilt = () => {
+            const t = (Date.now() - startTime) * 0.001;
+            const rotX = Math.sin(t * 0.5) * 5; 
+            const rotY = Math.cos(t * 0.3) * 5;
+            container.style.transform = `perspective(1000px) rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+            rafId = requestAnimationFrame(animateTilt);
+        };
+        animateTilt();
+    } else {
+        // Manual / Stored Mode
+        const animateManual = () => {
+            container.style.transform = `perspective(1000px) rotateX(${tiltRef.current.x}deg) rotateY(${tiltRef.current.y}deg)`;
+            rafId = requestAnimationFrame(animateManual);
+        };
+        animateManual();
+
+        // Mouse Event Handlers for Dragging
+        const handleMouseDown = (e: MouseEvent) => {
+            if(settings.tilt && !settings.tiltAuto) {
+                // Only enable drag if clicked inside the stage (or container)
+                if (container.contains(e.target as Node)) {
+                    setIsDragging(true);
+                    e.preventDefault(); // Prevent text selection
+                }
+            }
+        };
+
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!isDragging) return;
+            
+            // Adjust sensitivity here
+            const sensitivity = 0.5;
+            tiltRef.current.y += e.movementX * sensitivity;
+            tiltRef.current.x -= e.movementY * sensitivity;
+            
+            // Limit angles slightly to prevent flipping? Optional.
+            tiltRef.current.x = Math.max(-60, Math.min(60, tiltRef.current.x));
+            tiltRef.current.y = Math.max(-60, Math.min(60, tiltRef.current.y));
+        };
+
+        const handleMouseUp = () => {
+            if (isDragging) {
+                setIsDragging(false);
+                // Save to global settings on release
+                onUpdateSettings({ 
+                    tiltAngleX: tiltRef.current.x, 
+                    tiltAngleY: tiltRef.current.y 
+                });
+            }
+        };
+        
+        window.addEventListener('mousedown', handleMouseDown);
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+        
+        return () => {
+            window.removeEventListener('mousedown', handleMouseDown);
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+            cancelAnimationFrame(rafId);
+        };
+    }
+
+    return () => cancelAnimationFrame(rafId);
+  }, [settings.tilt, settings.tiltAuto, isDragging, onUpdateSettings]); // Re-bind if modes change
 
   // Derived styles
   const bgRgba = useMemo(() => {
@@ -74,8 +167,6 @@ export const IntroStage: React.FC<IntroStageProps> = ({ settings, assets, mappin
          const oy = 50 + map.y;
          charEl.style.backgroundPosition = `${ox}% ${oy}%`;
          
-         // CRITICAL FIX: If scale is exactly 100 (default from Prepper) and user hasn't forced fitHeight,
-         // use 'cover' to perfectly match the baked 16:9 asset to the text shape without distortion.
          if (map.scale === 100 && !map.fitHeight) {
              charEl.style.backgroundSize = 'cover';
          } else {
@@ -84,20 +175,50 @@ export const IntroStage: React.FC<IntroStageProps> = ({ settings, assets, mappin
       }
   };
 
+  const applySolidToChar = (charEl: HTMLElement) => {
+      charEl.style.backgroundImage = 'none';
+      charEl.style.backgroundColor = 'transparent'; // Let container bg show, or handled by parent
+      charEl.style.color = settings.textColor;
+      charEl.style.webkitBackgroundClip = 'border-box';
+      charEl.style.backgroundClip = 'border-box';
+  }
+
   // Animation Loop Logic
   useEffect(() => {
     const isManual = typeof manualTime === 'number';
 
     if (!isPlaying && !isManual) {
-        // Reset styles when stopped
+        // --- IDLE / STOPPED STATE ---
         if(logoFrontRef.current) {
+            // Ensure no animation transform residue
             logoFrontRef.current.style.transform = `translateY(${settings.offsetY}px) scale(1)`;
-            logoFrontRef.current.style.backgroundImage = 'none';
-            logoFrontRef.current.style.backgroundColor = bgRgba;
-            logoFrontRef.current.style.color = settings.textColor;
-            logoFrontRef.current.style.backgroundClip = 'border-box';
-            logoFrontRef.current.style.webkitBackgroundClip = 'border-box';
             logoFrontRef.current.style.transition = 'none';
+
+            if (settings.endStyle === 'image') {
+                 // Frozen Image Mode
+                 const chars = logoFrontRef.current.children;
+                 for(let i=0; i<chars.length; i++) {
+                     const charEl = chars[i] as HTMLElement;
+                     const map = mappings[i] || { imgId: null, scale: 100, x: 0, y: 0, fitHeight: false, duration: 0 };
+                     const asset = assets.find(a => a.id === map.imgId) || assets[0];
+                     
+                     if (asset) {
+                         applyBackgroundToChar(charEl, asset.url, map);
+                         charEl.style.backgroundColor = 'transparent'; 
+                     } else {
+                         applySolidToChar(charEl);
+                         charEl.style.backgroundColor = bgRgba;
+                     }
+                 }
+            } else {
+                 // Solid Color Mode
+                 const chars = logoFrontRef.current.children;
+                 for(let i=0; i<chars.length; i++) {
+                     applySolidToChar(chars[i] as HTMLElement);
+                 }
+                 logoFrontRef.current.style.backgroundColor = bgRgba;
+                 logoFrontRef.current.style.color = settings.textColor;
+            }
         }
         if(logoShadowRef.current) {
             logoShadowRef.current.style.transform = `translateY(${settings.offsetY}px) scale(1)`;
@@ -106,63 +227,98 @@ export const IntroStage: React.FC<IntroStageProps> = ({ settings, assets, mappin
         return;
     }
 
-    // MANUAL MODE (for Exporting)
-    if (isManual && manualTime !== undefined && manualTime !== null) {
+    // --- SHARED RENDER LOGIC (Manual & Playing) ---
+    const renderFrame = (t: number) => {
+        // 1. Calculate Scale based on Phase 1 progress (0 -> settings.duration)
         const startS = settings.startScale / 100;
-        const t = manualTime;
-        const progress = Math.min(t / settings.duration, 1);
-        const currentScale = startS + (1 - startS) * progress;
-        
+        const scaleProgress = Math.min(Math.max(t / settings.duration, 0), 1);
+        const currentScale = startS + (1 - startS) * scaleProgress;
         const transform = `translateY(${settings.offsetY}px) scale(${currentScale})`;
-        
+
         if(logoFrontRef.current) {
-            logoFrontRef.current.style.transition = 'none';
+            logoFrontRef.current.style.transition = 'none'; // DISABLE CSS TRANSITION
             logoFrontRef.current.style.transform = transform;
         }
         if(logoShadowRef.current) {
-            logoShadowRef.current.style.transition = 'none';
+            logoShadowRef.current.style.transition = 'none'; // DISABLE CSS TRANSITION
             logoShadowRef.current.style.transform = transform;
         }
+
+        // 2. Handle Text Content (Solid vs Images)
+        const isPhase1 = t < settings.duration;
 
         if (settings.slotEffect) {
             const chars = logoFrontRef.current?.children;
             if (chars) {
-                for (let i = 0; i < chars.length; i++) {
-                    const charEl = chars[i] as HTMLElement;
-                    const map = mappings[i] || { imgId: null, scale: 100, x: 0, y: 0, fitHeight: false, duration: settings.duration + (i * settings.stagger) };
-                    const lockTime = map.duration;
-                    
-                    if (t > lockTime) {
-                        const asset = assets.find(a => a.id === map.imgId) || assets[0];
-                        if (asset) applyBackgroundToChar(charEl, asset.url, map);
-                    } else {
-                         const randomAsset = assets[Math.floor((t % (assets.length * 10)) / 10)] || assets[0];
-                         if (randomAsset) applyBackgroundToChar(charEl, randomAsset.url, null, true, t, settings.jitter);
+                // If we are in Phase 1 AND startStyle is 'solid', enforce solid text
+                if (isPhase1 && settings.startStyle === 'solid') {
+                     // Force Solid Appearance
+                     for (let i = 0; i < chars.length; i++) {
+                         const charEl = chars[i] as HTMLElement;
+                         if (charEl.style.backgroundImage !== 'none') {
+                             applySolidToChar(charEl);
+                         }
+                     }
+                     // Container BG should be active
+                     if (logoFrontRef.current) {
+                         logoFrontRef.current.style.backgroundColor = bgRgba;
+                     }
+                } 
+                else {
+                    // Running Slot Machine Logic
+                    if (logoFrontRef.current) logoFrontRef.current.style.backgroundColor = 'transparent'; // Hide container bg, use span bgs
+
+                    for (let i = 0; i < chars.length; i++) {
+                        const charEl = chars[i] as HTMLElement;
+                        const map = mappings[i] || { imgId: null, scale: 100, x: 0, y: 0, fitHeight: false, duration: settings.duration + (i * settings.stagger) };
+                        const lockTime = map.duration;
+                        
+                        if (t > lockTime) {
+                            // Phase 3/4: Locked
+                            if (!charEl.dataset.locked || isManual) { // In manual mode, always re-apply
+                                charEl.dataset.locked = "true";
+                                const asset = assets.find(a => a.id === map.imgId) || assets[0];
+                                if (asset) applyBackgroundToChar(charEl, asset.url, map);
+                            }
+                        } else {
+                             // Phase 2: Slotting
+                             // Only update if enough time passed since last update (for RAF) or if Manual (always update)
+                             // Note: For smooth manual scrubbing, we might want consistent randomness based on T.
+                             // For now, we use T to seed the choice in manual mode roughly.
+                             
+                             if (isManual) {
+                                 const randomAsset = assets[Math.floor((t % (assets.length * 100)) / 100 * assets.length)] || assets[0];
+                                 if(randomAsset) applyBackgroundToChar(charEl, randomAsset.url, null, true, t, settings.jitter);
+                             } else {
+                                 // RAF Mode: controlled by speed
+                                 const lastFlash = parseInt(charEl.dataset.lastFlash || '0');
+                                 if (t - lastFlash > settings.speed) {
+                                     const randomAsset = assets[Math.floor(Math.random() * assets.length)];
+                                     if(randomAsset) applyBackgroundToChar(charEl, randomAsset.url, null, true, t, settings.jitter);
+                                     charEl.dataset.lastFlash = t.toString();
+                                 }
+                             }
+                        }
                     }
                 }
             }
         }
+    }
+
+    // MANUAL MODE
+    if (isManual && manualTime !== undefined && manualTime !== null) {
+        renderFrame(manualTime);
         return;
     }
 
     // PLAYING MODE (RAF)
     let rafId: number;
     let startTime = Date.now();
-    let lastFlash = 0;
     
+    // Clear locked state on start
     if(logoFrontRef.current) {
-        const startS = settings.startScale / 100;
-        logoFrontRef.current.style.transition = `transform ${settings.duration}ms linear`;
-        logoFrontRef.current.style.transform = `translateY(${settings.offsetY}px) scale(${startS})`;
-        void logoFrontRef.current.offsetWidth;
-        logoFrontRef.current.style.transform = `translateY(${settings.offsetY}px) scale(1)`;
-    }
-    if(logoShadowRef.current) {
-         const startS = settings.startScale / 100;
-         logoShadowRef.current.style.transition = `transform ${settings.duration}ms linear`;
-         logoShadowRef.current.style.transform = `translateY(${settings.offsetY}px) scale(${startS})`;
-         void logoShadowRef.current.offsetWidth;
-         logoShadowRef.current.style.transform = `translateY(${settings.offsetY}px) scale(1)`;
+        const chars = logoFrontRef.current.children;
+        for(let i=0; i<chars.length; i++) (chars[i] as HTMLElement).dataset.locked = "";
     }
 
     const maxDuration = Math.max(
@@ -179,34 +335,7 @@ export const IntroStage: React.FC<IntroStageProps> = ({ settings, assets, mappin
         return;
       }
 
-      if (settings.slotEffect) {
-        const chars = logoFrontRef.current?.children;
-        
-        if (chars) {
-            for (let i = 0; i < chars.length; i++) {
-                const charEl = chars[i] as HTMLElement;
-                const map = mappings[i] || { imgId: null, scale: 100, x: 0, y: 0, fitHeight: false, duration: settings.duration + (i * settings.stagger) };
-                const lockTime = map.duration;
-                
-                if (elapsed > lockTime) {
-                    if (!charEl.dataset.locked) {
-                        charEl.dataset.locked = "true";
-                        charEl.classList.remove('animate-flash'); // Remove any flash classes if we had them
-                        
-                        const asset = assets.find(a => a.id === map.imgId) || assets[0];
-                        if (asset) applyBackgroundToChar(charEl, asset.url, map);
-                    }
-                } else {
-                     if (now - lastFlash > settings.speed) {
-                         const randomAsset = assets[Math.floor(Math.random() * assets.length)];
-                         if (randomAsset) applyBackgroundToChar(charEl, randomAsset.url, null, true, elapsed, settings.jitter);
-                     }
-                }
-            }
-        }
-        if (now - lastFlash > settings.speed) lastFlash = now;
-      } 
-
+      renderFrame(elapsed);
       rafId = requestAnimationFrame(animate);
     };
 
@@ -214,28 +343,18 @@ export const IntroStage: React.FC<IntroStageProps> = ({ settings, assets, mappin
 
     return () => {
       cancelAnimationFrame(rafId);
-      if(logoFrontRef.current) logoFrontRef.current.style.transition = 'none';
-      if(logoShadowRef.current) logoShadowRef.current.style.transition = 'none';
     };
   }, [isPlaying, settings, assets, mappings, bgRgba, manualTime]);
 
-
-  useEffect(() => {
-      if(!isPlaying && manualTime === null && settings.solidFinal && logoFrontRef.current) {
-           const chars = logoFrontRef.current.children;
-           for(let i=0; i<chars.length; i++) {
-               const el = chars[i] as HTMLElement;
-               el.style.backgroundImage = 'none';
-               el.style.color = settings.textColor;
-               el.style.backgroundColor = 'transparent'; 
-           }
-      }
-  }, [isPlaying, settings.solidFinal, settings.textColor, manualTime]);
-
-  const showSlots = settings.slotEffect && (isPlaying || typeof manualTime === 'number');
+  // Determine if we are in "Slot Mode" visually (individual spans)
+  // This depends on: Playing OR Manual OR (Idle AND EndStyle is Image)
+  const showSlots = settings.slotEffect && (isPlaying || typeof manualTime === 'number' || settings.endStyle === 'image');
 
   return (
-    <div id="intro-stage" className="relative w-full aspect-video bg-white overflow-hidden flex items-center justify-center perspective-[1000px] shadow-2xl">
+    <div 
+        id="intro-stage" 
+        className={`relative w-full aspect-video bg-white overflow-hidden flex items-center justify-center shadow-2xl ${settings.tilt && !settings.tiltAuto ? 'cursor-grab active:cursor-grabbing' : ''}`}
+    >
       <div 
         className="absolute inset-0 bg-cover bg-center z-0" 
         style={{ 
@@ -252,9 +371,10 @@ export const IntroStage: React.FC<IntroStageProps> = ({ settings, assets, mappin
       <div 
         ref={containerRef}
         id="intro-container"
-        className="w-full h-full flex flex-col justify-center items-center transform-style-3d transition-transform ease-out duration-100 relative z-20"
+        className="w-full h-full flex flex-col justify-center items-center transition-transform ease-out duration-100 relative z-20"
+        style={{ transformStyle: 'preserve-3d' }}
       >
-         <div className="relative transform-style-3d inline-block">
+         <div className="relative inline-block" style={{ transformStyle: 'preserve-3d' }}>
             <div 
                 ref={logoShadowRef}
                 className="absolute top-0 left-0 w-full h-full flex justify-center z-[-1] pointer-events-none select-none"
@@ -298,11 +418,12 @@ export const IntroStage: React.FC<IntroStageProps> = ({ settings, assets, mappin
 
          {settings.subEnabled && (
              <div 
-                className="font-bebas text-white uppercase text-center transform-style-3d translate-z-[20px] drop-shadow-md z-30"
+                className="font-bebas text-white uppercase text-center drop-shadow-md z-30"
                 style={{
                     marginTop: `${settings.subMargin}%`,
                     fontSize: `${settings.subSize}vw`,
-                    letterSpacing: `${settings.subSpacing}em`
+                    letterSpacing: `${settings.subSpacing}em`,
+                    transform: 'translateZ(20px)'
                 }}
              >
                 {settings.subText}

@@ -20,9 +20,10 @@ export const ANIMATION_PRESETS = [
       speed: 80,
       jitter: 5,
       startScale: 100,
+      startStyle: 'solid',
       slotEffect: true,
       tilt: false,
-      solidFinal: true,
+      endStyle: 'solid',
       offsetY: 0
     }
   },
@@ -35,9 +36,10 @@ export const ANIMATION_PRESETS = [
       speed: 40,
       jitter: 8,
       startScale: 150,
+      startStyle: 'image',
       slotEffect: true,
       tilt: true,
-      solidFinal: true,
+      endStyle: 'solid',
       offsetY: 0
     }
   },
@@ -50,9 +52,10 @@ export const ANIMATION_PRESETS = [
       speed: 120,
       jitter: 2,
       startScale: 80,
+      startStyle: 'solid',
       slotEffect: true,
       tilt: false,
-      solidFinal: true,
+      endStyle: 'solid',
       offsetY: 0
     }
   },
@@ -65,9 +68,10 @@ export const ANIMATION_PRESETS = [
       speed: 30,
       jitter: 20,
       startScale: 200,
+      startStyle: 'image',
       slotEffect: true,
       tilt: true,
-      solidFinal: false,
+      endStyle: 'image',
       offsetY: 0
     }
   },
@@ -80,9 +84,10 @@ export const ANIMATION_PRESETS = [
       speed: 100,
       jitter: 0,
       startScale: 110,
+      startStyle: 'solid',
       slotEffect: false,
       tilt: false,
-      solidFinal: true,
+      endStyle: 'solid',
       offsetY: 0
     }
   }
@@ -110,9 +115,12 @@ export const DEFAULT_INTRO_SETTINGS: IntroSettings = {
   slotEffect: true,
   tilt: false,
   tiltAuto: false,
+  tiltAngleX: 0,
+  tiltAngleY: 0,
   duration: 4000,
   stagger: 200,
-  solidFinal: true,
+  startStyle: 'solid', // Default start style
+  endStyle: 'solid',
   speed: 80,
   jitter: 5,
   startScale: 100,

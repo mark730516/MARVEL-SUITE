@@ -50,9 +50,16 @@ export interface IntroSettings {
   slotEffect: boolean;
   tilt: boolean;
   tiltAuto: boolean;
-  duration: number; // ms
-  stagger: number; // ms
-  solidFinal: boolean;
+  tiltAngleX: number; // New: Manual tilt state X
+  tiltAngleY: number; // New: Manual tilt state Y
+  
+  // Timeline / Phases
+  duration: number; // ms (Phase 1 duration & Base lock time)
+  stagger: number; // ms (Phase 3 Interval)
+  
+  startStyle: 'solid' | 'image'; // New: Phase 1 appearance
+  endStyle: 'solid' | 'image'; // Phase 4 appearance
+  
   speed: number; // ms (flash speed)
   jitter: number; // % (position jitter)
   startScale: number; // %

@@ -196,6 +196,43 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeId, images, updateSetting]);
 
+  // Logic to calculate optimal font size
+  const handleAutoFitText = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const fontFamily = selectedFont.split(',')[0].replace(/['"]/g, '');
+    const baseFontSize = 100; // Use 100px as a measurement base
+    ctx.font = `900 ${baseFontSize}px "${fontFamily}"`;
+    
+    // Text to measure - use the longest variation if in slot mode, but usually main text is the bounding factor
+    const textToMeasure = maskText || 'MARVEL';
+    const metrics = ctx.measureText(textToMeasure);
+    
+    const textWidth = metrics.width;
+    const textHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent || baseFontSize;
+
+    // Safety margins (90% of canvas)
+    const targetW = CANVAS_WIDTH * 0.9;
+    const targetH = CANVAS_HEIGHT * 0.9;
+
+    const ratioW = targetW / textWidth;
+    const ratioH = targetH / textHeight;
+    
+    // Choose the limiting dimension
+    const optimalRatio = Math.min(ratioW, ratioH);
+    const optimalFontSizePx = baseFontSize * optimalRatio;
+
+    // Convert pixel size back to percentage of canvas width (logic used in draw)
+    // fontSize = (CANVAS_WIDTH * maskSize) / 100
+    // maskSize = (fontSize * 100) / CANVAS_WIDTH
+    const optimalPercentage = (optimalFontSizePx * 100) / CANVAS_WIDTH;
+
+    setMaskSize(parseFloat(optimalPercentage.toFixed(2)));
+  };
+
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -482,13 +519,18 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
             <CheckboxControl label="老虎機對應模式" checked={slotMode} onChange={e => setSlotMode(e.target.checked)} className="mt-2 text-primary" />
             
             <div className="mt-3 space-y-2">
-                <TextInput value={maskText} onChange={e => setMaskText(e.target.value.toUpperCase())} placeholder="預覽文字" />
+                <div className="flex gap-1 items-end">
+                    <TextInput value={maskText} onChange={e => setMaskText(e.target.value.toUpperCase())} placeholder="預覽文字" className="flex-1" />
+                    <Button onClick={handleAutoFitText} title="自動適配大小" className="px-2 py-1.5 text-xs bg-accent/20 text-accent border-accent/50 hover:bg-accent hover:text-white shrink-0">
+                        ✨ 適配
+                    </Button>
+                </div>
                 <Select value={selectedFont} onChange={e => setSelectedFont(e.target.value)}>
                     {FONTS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
                 </Select>
                 <RangeControl 
                     label="遮罩字體大小" 
-                    min={5} max={50} 
+                    min={5} max={100} 
                     value={maskSize} 
                     valueDisplay={`${maskSize}%`}
                     onChange={e => setMaskSize(parseFloat(e.target.value))}

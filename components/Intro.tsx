@@ -233,6 +233,7 @@ export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initi
             <div className="max-w-full max-h-full aspect-video shadow-2xl">
                 <IntroStage 
                     settings={settings}
+                    onUpdateSettings={(vals) => setSettings(s => ({...s, ...vals}))}
                     assets={assets}
                     mappings={mappings}
                     isPlaying={isPlaying}

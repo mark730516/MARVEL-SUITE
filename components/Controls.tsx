@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 interface ControlGroupProps {
   title: string;
@@ -21,19 +21,54 @@ interface RangeProps extends React.InputHTMLAttributes<HTMLInputElement> {
   valueDisplay?: string | number;
 }
 
-export const RangeControl: React.FC<RangeProps> = ({ label, valueDisplay, className, ...props }) => (
-  <div className={className}>
-    <div className="flex justify-between items-center mb-1">
-      <label className="text-[10px] uppercase text-gray-400 tracking-wider">{label}</label>
-      <span className="text-[10px] text-gray-500 font-mono">{valueDisplay}</span>
+export const RangeControl: React.FC<RangeProps> = ({ label, valueDisplay, className, value, onChange, min, max, step, ...props }) => {
+  // Local state to handle input changes smoothly without lag
+  const [localVal, setLocalVal] = useState(value);
+
+  useEffect(() => {
+    setLocalVal(value);
+  }, [value]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVal = parseFloat(e.target.value);
+    setLocalVal(newVal);
+    if (onChange) {
+        // Create a synthetic event to match the slider's expected interface
+        const syntheticEvent = {
+            ...e,
+            target: { ...e.target, value: e.target.value }
+        };
+        onChange(syntheticEvent);
+    }
+  };
+
+  return (
+    <div className={className}>
+      <div className="flex justify-between items-center mb-1">
+        <label className="text-[10px] uppercase text-gray-400 tracking-wider">{label}</label>
+        <input 
+            type="number" 
+            className="w-16 bg-[#111] border border-gray-700 rounded text-[10px] text-right px-1 py-0.5 text-accent font-mono focus:border-primary focus:outline-none appearance-none"
+            value={localVal}
+            onChange={handleInputChange}
+            min={min}
+            max={max}
+            step={step}
+        />
+      </div>
+      <input
+        type="range"
+        className="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-primary"
+        value={value}
+        onChange={onChange}
+        min={min}
+        max={max}
+        step={step}
+        {...props}
+      />
     </div>
-    <input
-      type="range"
-      className="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-primary"
-      {...props}
-    />
-  </div>
-);
+  );
+};
 
 interface CheckboxProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string;
