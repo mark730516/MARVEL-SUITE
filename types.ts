@@ -70,7 +70,10 @@ export interface IntroSettings {
   offsetY: number; // px
 
   // Scene
-  sceneBgColor: string; // NEW: Stage background color when no image
+  sceneBgType: 'solid' | 'gradient'; // NEW
+  sceneBgColor: string; // Color 1
+  sceneBgColor2: string; // NEW: Color 2
+  sceneBgGradientDir: string; // NEW: 'to bottom', 'to right', '135deg', 'radial'
   bgImage: string | null;
   bgDimmer: number;
   bgBlur: number; // Background blur intensity

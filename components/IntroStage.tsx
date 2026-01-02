@@ -138,6 +138,16 @@ export const IntroStage: React.FC<IntroStageProps> = ({
     return s || 'none';
   }, [settings.depth, settings.glow, settings.shadowColor, isWireframe]);
 
+  const sceneBgStyle = useMemo(() => {
+      if (settings.sceneBgType === 'gradient') {
+          if (settings.sceneBgGradientDir === 'radial') {
+              return { backgroundImage: `radial-gradient(circle, ${settings.sceneBgColor}, ${settings.sceneBgColor2})` };
+          }
+          return { backgroundImage: `linear-gradient(${settings.sceneBgGradientDir}, ${settings.sceneBgColor}, ${settings.sceneBgColor2})` };
+      }
+      return { backgroundColor: settings.sceneBgColor };
+  }, [settings.sceneBgType, settings.sceneBgColor, settings.sceneBgColor2, settings.sceneBgGradientDir]);
+
   const mainFontSize = `${(1920 * settings.textSize) / 100}px`;
   const subFontSize = `${(1920 * settings.subSize) / 100}px`;
 
@@ -364,7 +374,7 @@ export const IntroStage: React.FC<IntroStageProps> = ({
             className={`relative overflow-hidden flex items-center justify-center shadow-2xl ${settings.tilt && !settings.tiltAuto ? 'cursor-grab active:cursor-grabbing' : ''}`}
             style={{
                 width: 1920, height: 1080,
-                backgroundColor: settings.sceneBgColor || '#ffffff',
+                ...sceneBgStyle,
                 transform: `scale(${scale})`,
                 backfaceVisibility: 'hidden', willChange: 'transform',
             }}

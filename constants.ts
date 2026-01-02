@@ -110,7 +110,10 @@ export const DEFAULT_INTRO_SETTINGS: IntroSettings = {
   startScale: 100,
   offsetY: 0,
 
-  sceneBgColor: '#ffffff', // Default to white
+  sceneBgType: 'solid',
+  sceneBgColor: '#ffffff',
+  sceneBgColor2: '#000000',
+  sceneBgGradientDir: 'to bottom',
   bgImage: null,
   bgDimmer: 0.5,
   bgBlur: 0,

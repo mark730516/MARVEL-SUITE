@@ -371,13 +371,13 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
             {/* Background Image */}
             <div className="mb-4">
                 <div className="flex justify-between items-center mb-1">
-                     <label className="text-[10px] uppercase text-gray-400">背景圖片 (Background)</label>
+                     <label className="text-[10px] uppercase text-gray-400">背景 (Background)</label>
                      {settings.bgImage && (
                          <button 
                             onClick={() => updateSetting('bgImage', null)}
                             className="text-[9px] text-red-400 hover:text-white"
                          >
-                            移除
+                            移除圖片
                          </button>
                      )}
                 </div>
@@ -387,17 +387,76 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
                 </label>
 
                 {!settings.bgImage && (
-                    <div className="flex items-center gap-2 mt-2 mb-2 p-1.5 bg-black/20 rounded border border-gray-700">
-                         <span className="text-[10px] text-gray-400 pl-1">背景底色</span>
-                         <div className="flex-1 flex items-center gap-2">
-                             <input 
-                                type="color" 
-                                className="h-5 w-8 bg-transparent border-none p-0 cursor-pointer"
-                                value={settings.sceneBgColor || '#ffffff'} 
-                                onChange={e => updateSetting('sceneBgColor', e.target.value)}
-                             />
-                             <span className="text-[10px] text-gray-500 font-mono uppercase">{settings.sceneBgColor}</span>
-                         </div>
+                    <div className="p-2 bg-black/20 rounded border border-gray-700">
+                        {/* Background Type Toggles */}
+                        <div className="flex gap-1 mb-2">
+                            <button 
+                                onClick={() => updateSetting('sceneBgType', 'solid')}
+                                className={`flex-1 py-1 text-[10px] rounded border transition-colors ${settings.sceneBgType === 'solid' ? 'bg-gray-700 text-white border-gray-500' : 'bg-transparent text-gray-500 border-transparent hover:bg-gray-800'}`}
+                            >
+                                純色 (Solid)
+                            </button>
+                            <button 
+                                onClick={() => updateSetting('sceneBgType', 'gradient')}
+                                className={`flex-1 py-1 text-[10px] rounded border transition-colors ${settings.sceneBgType === 'gradient' ? 'bg-gray-700 text-white border-gray-500' : 'bg-transparent text-gray-500 border-transparent hover:bg-gray-800'}`}
+                            >
+                                漸層 (Gradient)
+                            </button>
+                        </div>
+
+                        {settings.sceneBgType === 'solid' ? (
+                            <div className="flex items-center gap-2 mb-1">
+                                 <span className="text-[10px] text-gray-400 pl-1 w-10">Color</span>
+                                 <div className="flex-1 flex items-center gap-2 bg-[#111] p-1 rounded border border-gray-700">
+                                     <input 
+                                        type="color" 
+                                        className="h-5 w-8 bg-transparent border-none p-0 cursor-pointer"
+                                        value={settings.sceneBgColor || '#ffffff'} 
+                                        onChange={e => updateSetting('sceneBgColor', e.target.value)}
+                                     />
+                                     <span className="text-[10px] text-gray-500 font-mono uppercase">{settings.sceneBgColor}</span>
+                                 </div>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                {/* Color 1 & 2 */}
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="bg-[#111] p-1 rounded border border-gray-700 flex items-center gap-1">
+                                        <input type="color" className="h-5 w-6 bg-transparent border-none p-0 cursor-pointer" value={settings.sceneBgColor || '#ffffff'} onChange={e => updateSetting('sceneBgColor', e.target.value)} />
+                                        <span className="text-[9px] text-gray-500">Start</span>
+                                    </div>
+                                    <div className="bg-[#111] p-1 rounded border border-gray-700 flex items-center gap-1">
+                                        <input type="color" className="h-5 w-6 bg-transparent border-none p-0 cursor-pointer" value={settings.sceneBgColor2 || '#000000'} onChange={e => updateSetting('sceneBgColor2', e.target.value)} />
+                                        <span className="text-[9px] text-gray-500">End</span>
+                                    </div>
+                                </div>
+                                
+                                {/* Direction Grid */}
+                                <div>
+                                    <label className="text-[9px] text-gray-500 mb-1 block">漸層方向 (Direction)</label>
+                                    <div className="grid grid-cols-5 gap-1">
+                                        {[
+                                            { label: '↓', val: 'to bottom', tooltip: 'Top to Bottom' },
+                                            { label: '↑', val: 'to top', tooltip: 'Bottom to Top' },
+                                            { label: '→', val: 'to right', tooltip: 'Left to Right' },
+                                            { label: '←', val: 'to left', tooltip: 'Right to Left' },
+                                            { label: '↘', val: '135deg', tooltip: 'Diagonal' },
+                                            { label: '↗', val: '45deg', tooltip: 'Diagonal Up' },
+                                            { label: '⦿', val: 'radial', tooltip: 'Radial Center' },
+                                        ].map(opt => (
+                                            <button 
+                                                key={opt.val}
+                                                onClick={() => updateSetting('sceneBgGradientDir', opt.val)}
+                                                title={opt.tooltip}
+                                                className={`text-[10px] py-1 rounded border ${settings.sceneBgGradientDir === opt.val ? 'bg-primary border-primary text-white' : 'bg-[#222] border-gray-700 text-gray-400 hover:bg-gray-700'}`}
+                                            >
+                                                {opt.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
                 
