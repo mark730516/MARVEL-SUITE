@@ -64,11 +64,13 @@ export interface IntroSettings {
   endStyle: 'solid' | 'image'; // Phase 4 appearance
   
   speed: number; // ms (flash speed)
+  independentRoll: boolean; // NEW: If true, each char shows a different random image
   jitter: number; // % (position jitter)
   startScale: number; // %
   offsetY: number; // px
 
   // Scene
+  sceneBgColor: string; // NEW: Stage background color when no image
   bgImage: string | null;
   bgDimmer: number;
   bgBlur: number; // Background blur intensity

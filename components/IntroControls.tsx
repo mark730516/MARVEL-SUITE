@@ -12,6 +12,7 @@ interface IntroControlsProps {
   updateMapping: (index: number, changes: Partial<CharMapping>) => void;
   onUploadAssets: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onClearAssets: () => void;
+  onRemoveAsset: (id: string) => void;
   onUploadBg: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onUploadAudio: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onPlay: () => void;
@@ -25,7 +26,7 @@ interface IntroControlsProps {
 
 export const IntroControls: React.FC<IntroControlsProps> = ({
   settings, updateSetting, onApplyPreset, assets, mappings, updateMapping,
-  onUploadAssets, onClearAssets, onUploadBg, onUploadAudio,
+  onUploadAssets, onClearAssets, onRemoveAsset, onUploadBg, onUploadAudio,
   onPlay, onSnapshot, onExportGif, isPlaying, isExporting,
   isWireframe, toggleWireframe
 }) => {
@@ -196,6 +197,18 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
                         value={settings.duration} 
                         onChange={e => updateSetting('duration', parseFloat(e.target.value))} 
                     />
+                    <div className="grid grid-cols-2 gap-2 mt-2 bg-orange-500/10 p-2 rounded">
+                        <CheckboxControl 
+                            label="獨立圖片隨機 (Independent)" 
+                            checked={settings.independentRoll} 
+                            onChange={e => updateSetting('independentRoll', e.target.checked)} 
+                        />
+                         <div className="text-[9px] text-gray-400 col-span-2 mt-1">
+                            {settings.independentRoll 
+                                ? "目前模式：每個字顯示不同圖片 (混亂感)" 
+                                : "目前模式：單張大圖遮罩 (滿版質感)"}
+                        </div>
+                    </div>
                     <RangeControl label="圖片切換速度 (Flash Speed)" min={30} max={200} step={1} value={settings.speed} onChange={e => updateSetting('speed', parseFloat(e.target.value))} />
                     <RangeControl label="位置抖動 (Jitter)" min={0} max={20} value={settings.jitter} onChange={e => updateSetting('jitter', parseFloat(e.target.value))} />
                 </div>
@@ -304,7 +317,29 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
                         清空
                     </Button>
                 </div>
-                <div className="text-[10px] text-gray-500 text-right">
+                
+                {/* Visual Grid of Assets for Quick Reference and Deletion */}
+                <div className="grid grid-cols-5 gap-2 mt-2 max-h-[150px] overflow-y-auto p-1 custom-scrollbar">
+                  {assets.map((asset, idx) => (
+                    <div key={asset.id} className="relative w-full aspect-square rounded border border-gray-700 bg-cover bg-center group" style={{backgroundImage: `url(${asset.url})`}}>
+                       <div className="absolute top-0 left-0 bg-black/80 text-[9px] text-white px-1.5 py-0.5 rounded-br font-mono z-10">{idx+1}</div>
+                       <button 
+                            onClick={() => onRemoveAsset(asset.id)} 
+                            title="移除此圖片"
+                            className="absolute inset-0 bg-red-900/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 font-bold"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                  ))}
+                  {assets.length === 0 && (
+                      <div className="col-span-5 text-[10px] text-gray-500 text-center py-4 italic border border-dashed border-gray-800 rounded">
+                          尚未載入圖片
+                      </div>
+                  )}
+                </div>
+
+                <div className="text-[10px] text-gray-500 text-right mt-1">
                     目前共有 {assets.length} 張圖片
                 </div>
             </div>
@@ -326,6 +361,21 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
                     {settings.bgImage ? '更換背景圖片...' : '上傳背景圖片...'}
                     <input type="file" accept="image/*" onChange={onUploadBg} className="hidden" />
                 </label>
+
+                {!settings.bgImage && (
+                    <div className="flex items-center gap-2 mt-2 mb-2 p-1.5 bg-black/20 rounded border border-gray-700">
+                         <span className="text-[10px] text-gray-400 pl-1">背景底色</span>
+                         <div className="flex-1 flex items-center gap-2">
+                             <input 
+                                type="color" 
+                                className="h-5 w-8 bg-transparent border-none p-0 cursor-pointer"
+                                value={settings.sceneBgColor || '#ffffff'} 
+                                onChange={e => updateSetting('sceneBgColor', e.target.value)}
+                             />
+                             <span className="text-[10px] text-gray-500 font-mono uppercase">{settings.sceneBgColor}</span>
+                         </div>
+                    </div>
+                )}
                 
                 <RangeControl 
                     label="背景暗化 (Dimmer)" 

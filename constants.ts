@@ -22,6 +22,7 @@ export const ANIMATION_PRESETS = [
       stagger: 300,
       speed: 80,
       jitter: 5,
+      independentRoll: false, // Unified looks better for classic
       startScale: 100,
       slotEffect: true,
       tilt: false,
@@ -40,6 +41,7 @@ export const ANIMATION_PRESETS = [
       stagger: 100,
       speed: 40,
       jitter: 8,
+      independentRoll: true, // Independent looks chaotic and fast
       startScale: 150,
       slotEffect: true,
       tilt: true,
@@ -58,6 +60,7 @@ export const ANIMATION_PRESETS = [
       stagger: 800,
       speed: 100,
       jitter: 3,
+      independentRoll: false, 
       startScale: 80,
       slotEffect: true,
       tilt: false,
@@ -102,10 +105,12 @@ export const DEFAULT_INTRO_SETTINGS: IntroSettings = {
   startStyle: 'solid',
   endStyle: 'image',
   speed: 80,
+  independentRoll: false, // Default to Unified Mask mode (False)
   jitter: 5,
   startScale: 100,
   offsetY: 0,
 
+  sceneBgColor: '#ffffff', // Default to white
   bgImage: null,
   bgDimmer: 0.5,
   bgBlur: 0,

@@ -193,6 +193,7 @@ export const IntroStage: React.FC<IntroStageProps> = ({
             logoFrontRef.current.style.transform = `translateY(${settings.offsetY}px) scale(1)`;
             logoFrontRef.current.style.transition = 'none';
             logoFrontRef.current.style.backgroundColor = 'transparent';
+            logoFrontRef.current.style.backgroundImage = 'none'; // Reset parent BG
 
             const chars = logoFrontRef.current.children;
             for(let i=0; i<chars.length; i++) {
@@ -247,7 +248,12 @@ export const IntroStage: React.FC<IntroStageProps> = ({
             
             // Phase 1: Force Solid
             if (t < spinStartTime) {
-                if(!isWireframe) logoFrontRef.current.style.backgroundColor = bgRgba;
+                if(!isWireframe) {
+                    logoFrontRef.current.style.backgroundColor = bgRgba;
+                    logoFrontRef.current.style.backgroundImage = 'none';
+                    logoFrontRef.current.style.webkitBackgroundClip = 'border-box';
+                    logoFrontRef.current.style.backgroundClip = 'border-box';
+                }
                 for (let i = 0; i < chars.length; i++) {
                      const charEl = chars[i] as HTMLElement;
                      // Only re-apply if it's not already solid to save perf
@@ -258,7 +264,30 @@ export const IntroStage: React.FC<IntroStageProps> = ({
                 }
             } else {
                 // Phase 2 & 3: Slotting
-                if(!isWireframe) logoFrontRef.current.style.backgroundColor = 'transparent';
+                // Handle UNIFIED MASK Logic (Apply bg to parent) or INDEPENDENT Logic (Apply bg to children)
+                const seed = Math.floor(t / settings.speed);
+                const lastSeed = parseInt(logoFrontRef.current.dataset.lastSeed || '-1');
+
+                if (!settings.independentRoll && !isWireframe) {
+                    // UNIFIED MODE: Apply background to Parent Container for single continuous image
+                    if (seed !== lastSeed) {
+                        const asset = assets[seed % assets.length] || assets[0];
+                        if (asset) {
+                            logoFrontRef.current.style.backgroundColor = 'transparent';
+                            logoFrontRef.current.style.backgroundImage = `url('${asset.url}')`;
+                            logoFrontRef.current.style.backgroundSize = 'cover';
+                            logoFrontRef.current.style.backgroundPosition = 'center';
+                            logoFrontRef.current.style.color = 'transparent';
+                            logoFrontRef.current.style.webkitBackgroundClip = 'text';
+                            logoFrontRef.current.style.backgroundClip = 'text';
+                        }
+                        logoFrontRef.current.dataset.lastSeed = seed.toString();
+                    }
+                } else {
+                    // INDEPENDENT or WIREFRAME: Clear parent background
+                     logoFrontRef.current.style.backgroundColor = 'transparent';
+                     logoFrontRef.current.style.backgroundImage = 'none';
+                }
 
                 for (let i = 0; i < chars.length; i++) {
                     const charEl = chars[i] as HTMLElement;
@@ -274,15 +303,24 @@ export const IntroStage: React.FC<IntroStageProps> = ({
                         }
                     } else {
                         // SPINNING (Phase 2 or waiting for ripple in Phase 3)
-                        // Use determinstic jitter for manual preview, random for play
-                        const seed = Math.floor(t / settings.speed);
-                        const lastSeed = parseInt(charEl.dataset.lastSeed || '-1');
                         
-                        if (seed !== lastSeed) {
-                            const randomAsset = assets[seed % assets.length] || assets[0];
-                            if (randomAsset) applyBackgroundToChar(charEl, randomAsset.url, null, true, t, settings.jitter);
-                            charEl.dataset.lastSeed = seed.toString();
-                            charEl.dataset.state = 'spinning';
+                        // If Unified Mode, we want the child to be transparent so parent bg shows through
+                        if (!settings.independentRoll && !isWireframe) {
+                            charEl.style.backgroundImage = 'none';
+                            charEl.style.backgroundColor = 'transparent';
+                            charEl.style.color = 'transparent'; // Parent has bg-clip:text, so child text cuts it out
+                        } else {
+                            // Independent Mode: Randomize per character
+                            // Use determinstic jitter for manual preview, random for play
+                            const charSeed = seed + (i * 3); // Different per char
+                            const lastCharSeed = parseInt(charEl.dataset.lastSeed || '-1');
+                            
+                            if (seed !== lastCharSeed) {
+                                const randomAsset = assets[charSeed % assets.length] || assets[0];
+                                if (randomAsset) applyBackgroundToChar(charEl, randomAsset.url, null, true, t, settings.jitter);
+                                charEl.dataset.lastSeed = seed.toString();
+                                charEl.dataset.state = 'spinning';
+                            }
                         }
                     }
                 }
@@ -323,9 +361,10 @@ export const IntroStage: React.FC<IntroStageProps> = ({
     <div ref={wrapperRef} className="w-full h-full flex items-center justify-center bg-black/10 overflow-hidden relative">
         <div 
             id="intro-stage" 
-            className={`relative bg-white overflow-hidden flex items-center justify-center shadow-2xl ${settings.tilt && !settings.tiltAuto ? 'cursor-grab active:cursor-grabbing' : ''}`}
+            className={`relative overflow-hidden flex items-center justify-center shadow-2xl ${settings.tilt && !settings.tiltAuto ? 'cursor-grab active:cursor-grabbing' : ''}`}
             style={{
                 width: 1920, height: 1080,
+                backgroundColor: settings.sceneBgColor || '#ffffff',
                 transform: `scale(${scale})`,
                 backfaceVisibility: 'hidden', willChange: 'transform',
             }}

@@ -120,6 +120,10 @@ export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initi
       }
   };
 
+  const handleRemoveAsset = (id: string) => {
+      setAssets(prev => prev.filter(a => a.id !== id));
+  };
+
   const handleUploadBg = (e: React.ChangeEvent<HTMLInputElement>) => {
       if(e.target.files?.[0]) {
           setSettings(prev => ({ ...prev, bgImage: URL.createObjectURL(e.target.files![0]) }));
@@ -242,6 +246,7 @@ export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initi
             updateMapping={handleUpdateMapping}
             onUploadAssets={handleUploadAssets}
             onClearAssets={() => setAssets([])}
+            onRemoveAsset={handleRemoveAsset}
             onUploadBg={handleUploadBg}
             onUploadAudio={handleUploadAudio}
             onPlay={() => setIsPlaying(!isPlaying)}
