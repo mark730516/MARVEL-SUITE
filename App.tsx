@@ -37,7 +37,7 @@ const App: React.FC = () => {
         <header className="h-[54px] bg-black border-b border-border flex items-center justify-between px-5 shrink-0 z-50">
           <div className="flex items-center gap-2">
             <h1 className="text-primary font-black text-xl tracking-wider">MARVEL SUITE</h1>
-            <span className="text-[10px] bg-[#333] px-2 py-0.5 rounded text-gray-400">Genesis V13.3</span>
+            <span className="text-[10px] bg-[#333] px-2 py-0.5 rounded text-gray-400">Genesis V13.3 Fixed</span>
           </div>
           
           <div className="flex gap-4 h-full items-center">

@@ -208,7 +208,7 @@ export const IntroStage: React.FC<IntroStageProps> = ({
             const chars = logoFrontRef.current.children;
             for(let i=0; i<chars.length; i++) {
                 const charEl = chars[i] as HTMLElement;
-                const map = mappings[i] || { imgId: null, scale: 100, x: 0, y: 0, fitHeight: false };
+                const map = mappings[i] || { char: '', imgId: null, scale: 100, x: 0, y: 0, fitHeight: false, duration: 0 };
                 
                 // Idle state respects endStyle
                 if (settings.endStyle === 'image') {
@@ -302,7 +302,7 @@ export const IntroStage: React.FC<IntroStageProps> = ({
                 for (let i = 0; i < chars.length; i++) {
                     const charEl = chars[i] as HTMLElement;
                     const charStopTime = spinEndTime + (i * settings.stagger);
-                    const map = mappings[i] || { imgId: null, scale: 100, x: 0, y: 0, fitHeight: false };
+                    const map = mappings[i] || { char: '', imgId: null, scale: 100, x: 0, y: 0, fitHeight: false, duration: 0 };
 
                     if (t >= charStopTime) {
                         // LOCKED (Phase 3 Complete for this char)

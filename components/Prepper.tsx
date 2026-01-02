@@ -25,6 +25,10 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
   const [showGrid, setShowGrid] = useState(false);
   const [gridType, setGridType] = useState<'thirds' | 'cross'>('thirds');
 
+  // Interaction State
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStart = useRef<{x: number, y: number} | null>(null);
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -143,6 +147,135 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
         return curr;
     });
   }, []);
+
+  // --- Interaction Logic (Mouse Drag & Wheel) ---
+  const getMousePos = (e: React.MouseEvent | MouseEvent | React.WheelEvent) => {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (!rect) return { x: 0, y: 0 };
+      // Map mouse position to canvas resolution (1920x1080)
+      const scaleX = CANVAS_WIDTH / rect.width;
+      const scaleY = CANVAS_HEIGHT / rect.height;
+      return {
+          x: (e.clientX - rect.left) * scaleX,
+          y: (e.clientY - rect.top) * scaleY
+      };
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+      if (!activeId) return;
+      setIsDragging(true);
+      dragStart.current = getMousePos(e);
+      // Temporarily show grid while dragging
+      setShowGrid(true); 
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+      if (!isDragging || !activeId || !dragStart.current) return;
+      const currentPos = getMousePos(e);
+      const dx = currentPos.x - dragStart.current.x;
+      const dy = currentPos.y - dragStart.current.y;
+      
+      const img = images.find(i => i.id === activeId);
+      if (img) {
+          updateSetting('x', img.settings.x + dx);
+          updateSetting('y', img.settings.y + dy);
+          // Reset start to avoid acceleration
+          dragStart.current = currentPos;
+      }
+  };
+
+  const handleMouseUp = () => {
+      setIsDragging(false);
+      dragStart.current = null;
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+      if (!activeId) return;
+      
+      const img = images.find(i => i.id === activeId);
+      if (!img) return;
+
+      // Calculate intuitive Zoom-to-Cursor
+      const pos = getMousePos(e);
+      const mx = pos.x;
+      const my = pos.y;
+
+      const oldScale = img.settings.scale;
+      const scaleFactor = 0.001;
+      
+      // Calculate new scale with limits (0.01x to 5x)
+      // Standard mouse wheel: deltaY > 0 is scrolling down (Zoom Out)
+      const newScale = Math.max(0.01, Math.min(5, oldScale - (e.deltaY * scaleFactor)));
+
+      // Current image dimensions
+      const w = img.originalWidth * oldScale;
+      const h = img.originalHeight * oldScale;
+      // Current top-left in canvas coordinates
+      const cx = (CANVAS_WIDTH - w) / 2 + img.settings.x;
+      const cy = (CANVAS_HEIGHT - h) / 2 + img.settings.y;
+
+      // Mouse position relative to image (0 to 1)
+      const relX = (mx - cx) / w;
+      const relY = (my - cy) / h;
+
+      // New dimensions
+      const newW = img.originalWidth * newScale;
+      const newH = img.originalHeight * newScale;
+
+      // Calculate new top-left to keep mouse at same relative position on image
+      // mx = newCx + (relX * newW)  =>  newCx = mx - (relX * newW)
+      const newCx = mx - (relX * newW);
+      const newCy = my - (relY * newH);
+
+      // Convert top-left back to center-offsets (x, y)
+      // newCx = (CANVAS_WIDTH - newW)/2 + newX
+      const newX = newCx - (CANVAS_WIDTH - newW) / 2;
+      const newY = newCy - (CANVAS_HEIGHT - newH) / 2;
+
+      // Batch update settings
+      setActiveId(curr => {
+          if (!curr) return null;
+          setImages(prev => prev.map(im => 
+            im.id === curr ? { 
+                ...im, 
+                settings: { 
+                    ...im.settings, 
+                    scale: newScale,
+                    x: newX,
+                    y: newY
+                } 
+            } : im
+          ));
+          return curr;
+      });
+  };
+  
+  const handleDoubleClick = () => {
+      // Quick Reset to Cover
+      if (!activeId) return;
+      const img = images.find(i => i.id === activeId);
+      if(!img) return;
+
+      const scale = Math.max(CANVAS_WIDTH/img.originalWidth, CANVAS_HEIGHT/img.originalHeight);
+      
+      // Update directly without async loading for snappy response
+      setActiveId(curr => {
+          if (!curr) return null;
+          setImages(prev => prev.map(im => 
+            im.id === curr ? { 
+                ...im, 
+                settings: { 
+                    ...im.settings, 
+                    scale, 
+                    x: 0, 
+                    y: 0, 
+                    blur: false 
+                } 
+            } : im
+          ));
+          return curr;
+      });
+  };
 
   // Keyboard Shortcuts for Precision Nudging
   useEffect(() => {
@@ -399,7 +532,7 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
           </div>
         </ControlGroup>
 
-        <ControlGroup title="2. 精細規格 (Precision Specs)">
+        <ControlGroup title="2. 構圖與對齊 (Composition)">
              {activeImage ? (
                  <div className="bg-black/40 p-3 rounded mb-3 border border-gray-700">
                     <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[10px] font-mono mb-2">
@@ -413,12 +546,13 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
                         <span className="text-gray-600">渲染: {Math.round(activeImage.originalWidth * activeImage.settings.scale)}x{Math.round(activeImage.originalHeight * activeImage.settings.scale)}</span>
                     </div>
 
-                    <div className="text-[9px] text-gray-600 mt-2 text-center">
-                        提示: 使用鍵盤 <span className="text-gray-300 border border-gray-700 px-1 rounded">↑↓←→</span> 微調，<span className="text-gray-300 border border-gray-700 px-1 rounded">Shift</span> 加速
+                    <div className="text-[9px] text-gray-600 mt-2 text-center bg-gray-800/30 rounded p-1">
+                        提示: 可直接在畫布上 <span className="text-white">拖曳移動</span> 或 <span className="text-white">滾輪縮放</span><br/>
+                        雙擊畫布可快速填滿 (Cover)
                     </div>
                  </div>
              ) : (
-                 <div className="text-[10px] text-gray-500 text-center py-2">請選擇圖片以查看齒錯資料</div>
+                 <div className="text-[10px] text-gray-500 text-center py-2">請選擇圖片以啟用控制項</div>
              )}
 
              <div className="flex gap-2 mb-3">
@@ -440,7 +574,7 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
                 onChange={(e) => updateSetting('scale', parseFloat(e.target.value))}
              />
              
-             {/* 智慧對齊按鈕群組 */}
+             {/* 幾何對齊工具 */}
              <div className="grid grid-cols-3 gap-1 mb-3">
                  <Button className="col-span-3 text-[10px] px-1 py-1 bg-accent/20 border-accent/50 text-accent hover:bg-accent/30 hover:text-white mb-1 transition-all" onClick={() => getImageObj(img => {
                      const s = calculateSettings(img.width, img.height);
@@ -448,16 +582,41 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
                      updateSetting('x', s.x);
                      updateSetting('y', s.y);
                      updateSetting('blur', s.blur);
-                 })}>✨ 自動最佳化 (Auto-Optimize)</Button>
+                 })}>↺ 自動重置 (Smart Reset)</Button>
 
+                 <Button className="text-[10px] px-1 py-1 bg-gray-800 hover:bg-gray-700" title="人像模式：頂部對齊" onClick={() => getImageObj(img => {
+                     // 頂部對齊 (Top Align) - 適合人像
+                     const scale = Math.max(CANVAS_WIDTH/img.width, CANVAS_HEIGHT/img.height);
+                     updateSetting('scale', scale);
+                     updateSetting('x', 0); 
+                     const h = img.height * scale;
+                     updateSetting('y', (h - CANVAS_HEIGHT) / 2);
+                     updateSetting('blur', false);
+                 })}>⬆ 頂部對齊</Button>
+
+                <Button className="text-[10px] px-1 py-1 bg-gray-800 hover:bg-gray-700" onClick={() => {
+                     updateSetting('x', 0);
+                     updateSetting('y', 0);
+                 }}>✚ 絕對置中</Button>
+
+                 <Button className="text-[10px] px-1 py-1 bg-gray-800 hover:bg-gray-700" title="底部對齊" onClick={() => getImageObj(img => {
+                     // 底部對齊 (Bottom Align)
+                     const scale = Math.max(CANVAS_WIDTH/img.width, CANVAS_HEIGHT/img.height);
+                     updateSetting('scale', scale);
+                     updateSetting('x', 0); 
+                     const h = img.height * scale;
+                     updateSetting('y', (CANVAS_HEIGHT - h) / 2);
+                     updateSetting('blur', false);
+                 })}>⬇ 底部對齊</Button>
+                 
                  <Button className="text-[10px] px-1 py-1 bg-gray-800 hover:bg-gray-700" onClick={() => getImageObj(img => {
                      // Fill (Cover)
                      const scale = Math.max(CANVAS_WIDTH/img.width, CANVAS_HEIGHT/img.height);
                      updateSetting('scale', scale);
                      updateSetting('x', 0); updateSetting('y', 0);
                      updateSetting('blur', false);
-                 })}>全螢幕 (Fill)</Button>
-                 
+                 })}>填滿 (Cover)</Button>
+
                  <Button className="text-[10px] px-1 py-1 bg-gray-800 hover:bg-gray-700" onClick={() => getImageObj(img => {
                      // Fit (Contain)
                      const scale = Math.min(CANVAS_WIDTH/img.width, CANVAS_HEIGHT/img.height);
@@ -469,21 +628,6 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
                  <Button className="text-[10px] px-1 py-1 bg-gray-800 hover:bg-gray-700" onClick={() => {
                      updateSetting('scale', 1);
                  }}>1:1 原始</Button>
-
-                 <Button className="text-[10px] px-1 py-1 bg-gray-800 hover:bg-gray-700" onClick={() => getImageObj(img => {
-                     updateSetting('scale', CANVAS_WIDTH / img.width);
-                     updateSetting('x', 0);
-                 })}>寬度滿版</Button>
-                 
-                 <Button className="text-[10px] px-1 py-1 bg-gray-800 hover:bg-gray-700" onClick={() => getImageObj(img => {
-                     updateSetting('scale', CANVAS_HEIGHT / img.height);
-                     updateSetting('y', 0);
-                 })}>高度滿版</Button>
-
-                 <Button className="text-[10px] px-1 py-1 bg-gray-800 hover:bg-gray-700" onClick={() => {
-                     updateSetting('x', 0);
-                     updateSetting('y', 0);
-                 }}>置中歸零</Button>
              </div>
 
              <div className="space-y-2 mt-2">
@@ -492,7 +636,7 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
                      <input 
                         type="number" 
                         className="bg-[#111] border border-gray-700 text-white text-xs rounded px-2 py-1 flex-1"
-                        value={activeImage?.settings.x ?? 0}
+                        value={Math.round(activeImage?.settings.x ?? 0)}
                         onChange={(e) => updateSetting('x', parseFloat(e.target.value))}
                      />
                  </div>
@@ -501,7 +645,7 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
                      <input 
                         type="number" 
                         className="bg-[#111] border border-gray-700 text-white text-xs rounded px-2 py-1 flex-1"
-                        value={activeImage?.settings.y ?? 0}
+                        value={Math.round(activeImage?.settings.y ?? 0)}
                         onChange={(e) => updateSetting('y', parseFloat(e.target.value))}
                      />
                  </div>
@@ -547,13 +691,22 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
       </div>
 
       {/* Workspace */}
-      <div className="flex-1 bg-[#0d0d0d] flex items-center justify-center relative overflow-hidden bg-[radial-gradient(#222_1px,transparent_1px)] [background-size:20px_20px] outline-none group" tabIndex={-1}>
+      <div 
+        className="flex-1 bg-[#0d0d0d] flex items-center justify-center relative overflow-hidden bg-[radial-gradient(#222_1px,transparent_1px)] [background-size:20px_20px] outline-none group select-none" 
+        tabIndex={-1}
+        onWheel={handleWheel} // Add Scroll to Zoom to container
+      >
          <div className="relative shadow-2xl shadow-black/80 ring-1 ring-[#333]">
             <canvas 
                 ref={canvasRef} 
                 width={CANVAS_WIDTH} 
                 height={CANVAS_HEIGHT} 
-                className="max-w-full max-h-[90vh] aspect-video block bg-[#111]"
+                className={`max-w-full max-h-[90vh] aspect-video block bg-[#111] ${activeId ? 'cursor-move' : 'cursor-default'}`}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+                onDoubleClick={handleDoubleClick}
             />
             
             {/* Grid Overlay */}

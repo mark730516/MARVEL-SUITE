@@ -49,10 +49,6 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
   };
 
   // --- Timeline Calculations ---
-  // Phase 1: Solid (0 -> solidBaseDuration)
-  // Phase 2: Spin (solidBaseDuration -> solidBaseDuration + duration)
-  // Phase 3: Ripple (Starts at Phase 2 End, Ends at Last Char Lock)
-  // Phase 4: Hold (After Last Lock)
   const timelineStats = useMemo(() => {
       const t1 = settings.solidBaseDuration;
       const t2 = t1 + settings.duration; // Spin End
@@ -84,7 +80,7 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
                 {ANIMATION_PRESETS.map(preset => (
                     <button
                         key={preset.id}
-                        onClick={() => onApplyPreset(preset.settings)}
+                        onClick={() => onApplyPreset(preset.settings as any)}
                         className="bg-[#333] hover:bg-primary text-gray-300 hover:text-white text-[10px] py-2 px-1 rounded transition-colors border border-[#444]"
                     >
                         {preset.label}
@@ -141,7 +137,7 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
         </ControlGroup>
 
         <ControlGroup title="3. 動畫流程 (Time Sequence)">
-            {/* 4-Phase Timeline Visualizer */}
+            {/* Timeline Visualizer */}
             <div className="bg-[#111] p-3 rounded mb-4 border border-gray-700 font-mono text-[10px] select-none">
                 <div className="flex justify-between items-end mb-2">
                     <span className="text-gray-400 font-bold">時間軸預覽 (Timeline)</span>
@@ -150,7 +146,6 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
                     </span>
                 </div>
                 
-                {/* Progress Bar */}
                 <div className="h-6 w-full bg-gray-900 rounded-md flex relative overflow-hidden ring-1 ring-gray-700 mb-2">
                     <div className="h-full bg-blue-900/80 border-r border-blue-500/30 flex items-center justify-center text-blue-200 transition-all duration-300" style={{width: `${pctSolid}%`}} title={`Phase 1: Solid (${(timelineStats.solid/1000).toFixed(1)}s)`}>
                         {pctSolid > 15 && <span className="drop-shadow-md font-bold">Solid</span>}
@@ -166,7 +161,6 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
                     </div>
                 </div>
 
-                {/* Legend / Breakdown */}
                 <div className="grid grid-cols-4 gap-1 text-[9px] text-center bg-black/20 p-1 rounded">
                     <div className="text-blue-400">
                         <div className="w-2 h-2 bg-blue-500 rounded-full mx-auto mb-1 shadow-sm shadow-blue-500/50"></div>
@@ -192,7 +186,6 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
             </div>
 
             <div className="space-y-4">
-                {/* Phase 1 Control */}
                 <div className="relative border-l-2 border-blue-500 pl-3 transition-colors hover:border-blue-400">
                     <h3 className="text-xs font-bold text-blue-400 uppercase mb-2">Phase 1: 純色靜止 (Solid)</h3>
                     <RangeControl 
@@ -212,7 +205,6 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
                     </div>
                 </div>
 
-                {/* Phase 2 Control */}
                 <div className="relative border-l-2 border-orange-500 pl-3 transition-colors hover:border-orange-400">
                     <h3 className="text-xs font-bold text-orange-400 uppercase mb-2">Phase 2: 運轉 (Spinning)</h3>
                     <RangeControl 
@@ -237,7 +229,6 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
                     <RangeControl label="位置抖動 (Jitter)" min={0} max={20} value={settings.jitter} onChange={e => updateSetting('jitter', parseFloat(e.target.value))} />
                 </div>
 
-                {/* Phase 3 Control */}
                 <div className="relative border-l-2 border-purple-500 pl-3 transition-colors hover:border-purple-400">
                     <h3 className="text-xs font-bold text-purple-400 uppercase mb-2">Phase 3: 鎖定 (Locking)</h3>
                     <div className="bg-purple-500/10 p-2 rounded border border-purple-500/30">
@@ -253,7 +244,6 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
                     </div>
                 </div>
 
-                {/* Phase 4 Control */}
                 <div className="relative border-l-2 border-green-500 pl-3 transition-colors hover:border-green-400">
                     <h3 className="text-xs font-bold text-green-400 uppercase mb-2">Phase 4: 結尾 (End)</h3>
                     <RangeControl 
@@ -377,113 +367,82 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
                             onClick={() => updateSetting('bgImage', null)}
                             className="text-[9px] text-red-400 hover:text-white"
                          >
-                            移除圖片
+                            移除
                          </button>
                      )}
                 </div>
-                <label className="block w-full cursor-pointer bg-[#151515] border border-gray-700 hover:border-gray-500 text-gray-400 text-xs py-2 px-3 rounded truncate transition-colors mb-2">
-                    {settings.bgImage ? '更換背景圖片...' : '上傳背景圖片...'}
-                    <input type="file" accept="image/*" onChange={onUploadBg} className="hidden" />
-                </label>
 
-                {!settings.bgImage && (
-                    <div className="p-2 bg-black/20 rounded border border-gray-700">
-                        {/* Background Type Toggles */}
-                        <div className="flex gap-1 mb-2">
-                            <button 
-                                onClick={() => updateSetting('sceneBgType', 'solid')}
-                                className={`flex-1 py-1 text-[10px] rounded border transition-colors ${settings.sceneBgType === 'solid' ? 'bg-gray-700 text-white border-gray-500' : 'bg-transparent text-gray-500 border-transparent hover:bg-gray-800'}`}
-                            >
-                                純色 (Solid)
-                            </button>
-                            <button 
-                                onClick={() => updateSetting('sceneBgType', 'gradient')}
-                                className={`flex-1 py-1 text-[10px] rounded border transition-colors ${settings.sceneBgType === 'gradient' ? 'bg-gray-700 text-white border-gray-500' : 'bg-transparent text-gray-500 border-transparent hover:bg-gray-800'}`}
-                            >
-                                漸層 (Gradient)
-                            </button>
+                {/* Solid / Gradient Controls */}
+                <div className="bg-[#1a1a1a] p-2 rounded mb-2 border border-gray-800">
+                    <div className="flex gap-2 mb-2">
+                        <button 
+                            className={`flex-1 text-[10px] py-1 rounded transition-colors ${settings.sceneBgType === 'solid' ? 'bg-primary text-white font-bold' : 'bg-[#333] text-gray-400 hover:bg-[#444]'}`}
+                            onClick={() => updateSetting('sceneBgType', 'solid')}
+                        >
+                            純色 (Solid)
+                        </button>
+                        <button 
+                            className={`flex-1 text-[10px] py-1 rounded transition-colors ${settings.sceneBgType === 'gradient' ? 'bg-primary text-white font-bold' : 'bg-[#333] text-gray-400 hover:bg-[#444]'}`}
+                            onClick={() => updateSetting('sceneBgType', 'gradient')}
+                        >
+                            漸層 (Gradient)
+                        </button>
+                    </div>
+
+                    <div className="space-y-2 bg-black/20 p-2 rounded">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-gray-400">主色 (Color 1)</span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[9px] font-mono text-gray-500">{settings.sceneBgColor}</span>
+                                <input type="color" className="h-5 w-8 p-0 border-0 bg-transparent cursor-pointer" value={settings.sceneBgColor} onChange={e => updateSetting('sceneBgColor', e.target.value)} />
+                            </div>
                         </div>
 
-                        {settings.sceneBgType === 'solid' ? (
-                            <div className="flex items-center gap-2 mb-1">
-                                 <span className="text-[10px] text-gray-400 pl-1 w-10">Color</span>
-                                 <div className="flex-1 flex items-center gap-2 bg-[#111] p-1 rounded border border-gray-700">
-                                     <input 
-                                        type="color" 
-                                        className="h-5 w-8 bg-transparent border-none p-0 cursor-pointer"
-                                        value={settings.sceneBgColor || '#ffffff'} 
-                                        onChange={e => updateSetting('sceneBgColor', e.target.value)}
-                                     />
-                                     <span className="text-[10px] text-gray-500 font-mono uppercase">{settings.sceneBgColor}</span>
-                                 </div>
-                            </div>
-                        ) : (
-                            <div className="space-y-2">
-                                {/* Color 1 & 2 */}
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div className="bg-[#111] p-1 rounded border border-gray-700 flex items-center gap-1">
-                                        <input type="color" className="h-5 w-6 bg-transparent border-none p-0 cursor-pointer" value={settings.sceneBgColor || '#ffffff'} onChange={e => updateSetting('sceneBgColor', e.target.value)} />
-                                        <span className="text-[9px] text-gray-500">Start</span>
-                                    </div>
-                                    <div className="bg-[#111] p-1 rounded border border-gray-700 flex items-center gap-1">
-                                        <input type="color" className="h-5 w-6 bg-transparent border-none p-0 cursor-pointer" value={settings.sceneBgColor2 || '#000000'} onChange={e => updateSetting('sceneBgColor2', e.target.value)} />
-                                        <span className="text-[9px] text-gray-500">End</span>
+                        {settings.sceneBgType === 'gradient' && (
+                            <>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[10px] text-gray-400">副色 (Color 2)</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[9px] font-mono text-gray-500">{settings.sceneBgColor2}</span>
+                                        <input type="color" className="h-5 w-8 p-0 border-0 bg-transparent cursor-pointer" value={settings.sceneBgColor2} onChange={e => updateSetting('sceneBgColor2', e.target.value)} />
                                     </div>
                                 </div>
                                 
-                                {/* Direction Grid */}
-                                <div>
-                                    <label className="text-[9px] text-gray-500 mb-1 block">漸層方向 (Direction)</label>
-                                    <div className="grid grid-cols-5 gap-1">
-                                        {[
-                                            { label: '↓', val: 'to bottom', tooltip: 'Top to Bottom' },
-                                            { label: '↑', val: 'to top', tooltip: 'Bottom to Top' },
-                                            { label: '→', val: 'to right', tooltip: 'Left to Right' },
-                                            { label: '←', val: 'to left', tooltip: 'Right to Left' },
-                                            { label: '↘', val: '135deg', tooltip: 'Diagonal' },
-                                            { label: '↗', val: '45deg', tooltip: 'Diagonal Up' },
-                                            { label: '⦿', val: 'radial', tooltip: 'Radial Center' },
-                                        ].map(opt => (
-                                            <button 
-                                                key={opt.val}
-                                                onClick={() => updateSetting('sceneBgGradientDir', opt.val)}
-                                                title={opt.tooltip}
-                                                className={`text-[10px] py-1 rounded border ${settings.sceneBgGradientDir === opt.val ? 'bg-primary border-primary text-white' : 'bg-[#222] border-gray-700 text-gray-400 hover:bg-gray-700'}`}
-                                            >
-                                                {opt.label}
-                                            </button>
-                                        ))}
-                                    </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[10px] text-gray-400">方向 (Direction)</span>
+                                    <select 
+                                        className="bg-[#111] text-[10px] text-white border border-gray-700 rounded px-1 py-0.5 outline-none focus:border-primary w-[100px]"
+                                        value={settings.sceneBgGradientDir}
+                                        onChange={e => updateSetting('sceneBgGradientDir', e.target.value)}
+                                    >
+                                        <option value="to bottom">⬇ 垂直 (Top-Down)</option>
+                                        <option value="to right">➡ 水平 (Left-Right)</option>
+                                        <option value="135deg">↘ 斜角 (Diagonal)</option>
+                                        <option value="radial">◎ 放射 (Radial)</option>
+                                    </select>
                                 </div>
-                            </div>
+                            </>
                         )}
                     </div>
-                )}
+                </div>
+
+                <label className="cursor-pointer bg-[#151515] hover:bg-[#222] text-gray-400 hover:text-white text-xs py-2 px-3 rounded flex items-center justify-center border border-gray-700 transition-colors mb-2">
+                    <span className="truncate">{settings.bgImage ? '更換背景圖片...' : '上傳背景圖片...'}</span>
+                    <input type="file" accept="image/*" onChange={onUploadBg} className="hidden" />
+                </label>
+
+                <RangeControl label="背景暗化 (Dimmer)" min={0} max={1} step={0.05} value={settings.bgDimmer} onChange={e => updateSetting('bgDimmer', parseFloat(e.target.value))} />
+                <RangeControl label="背景模糊 (Blur)" min={0} max={20} step={1} value={settings.bgBlur} onChange={e => updateSetting('bgBlur', parseFloat(e.target.value))} />
                 
-                <RangeControl 
-                    label="背景暗化 (Dimmer)" 
-                    min={0} max={1} step={0.05} 
-                    value={settings.bgDimmer} 
-                    onChange={e => updateSetting('bgDimmer', parseFloat(e.target.value))} 
-                />
-                <RangeControl 
-                    label="背景模糊 (Blur)" 
-                    min={0} max={20} step={1} 
-                    value={settings.bgBlur} 
-                    onChange={e => updateSetting('bgBlur', parseFloat(e.target.value))} 
-                />
+                <div className="flex gap-4 mt-2">
+                    <CheckboxControl label="半色調網點 (Halftone)" checked={settings.halftone} onChange={e => updateSetting('halftone', e.target.checked)} />
+                    <CheckboxControl label="電影黑邊 (Letterbox)" checked={settings.cineBars} onChange={e => updateSetting('cineBars', e.target.checked)} />
+                </div>
             </div>
 
-            {/* Effects */}
-            <div className="grid grid-cols-2 gap-2 mb-4">
-                <CheckboxControl label="漫畫網點 (Halftone)" checked={settings.halftone} onChange={e => updateSetting('halftone', e.target.checked)} />
-                <CheckboxControl label="電影黑邊 (CineBars)" checked={settings.cineBars} onChange={e => updateSetting('cineBars', e.target.checked)} />
-            </div>
-
-            {/* Audio */}
-            <div className="border-t border-gray-700 pt-3">
+            <div className="pt-3 border-t border-gray-700">
                 <div className="flex justify-between items-center mb-1">
-                     <label className="text-[10px] uppercase text-gray-400">背景音樂 (Audio)</label>
+                     <label className="text-[10px] uppercase text-gray-400">音效 (Audio MP3)</label>
                      {settings.audioUrl && (
                          <button 
                             onClick={() => updateSetting('audioUrl', null)}
@@ -493,39 +452,40 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
                          </button>
                      )}
                 </div>
-                <label className="block w-full cursor-pointer bg-[#151515] border border-gray-700 hover:border-gray-500 text-gray-400 text-xs py-2 px-3 rounded truncate transition-colors mb-2">
-                    {settings.audioUrl ? '更換音樂 (MP3)...' : '上傳音樂 (MP3)...'}
+                <label className="cursor-pointer bg-[#151515] hover:bg-[#222] text-gray-400 hover:text-white text-xs py-2 px-3 rounded flex items-center justify-center border border-gray-700 transition-colors mb-2">
+                    <span className="truncate">{settings.audioUrl ? '更換音效...' : '上傳 MP3...'}</span>
                     <input type="file" accept="audio/*" onChange={onUploadAudio} className="hidden" />
                 </label>
-                <RangeControl 
-                    label="音量 (Volume)" 
-                    min={0} max={1} step={0.1} 
-                    value={settings.volume} 
-                    onChange={e => updateSetting('volume', parseFloat(e.target.value))} 
-                />
+                <RangeControl label="音量 (Volume)" min={0} max={1} step={0.1} value={settings.volume} onChange={e => updateSetting('volume', parseFloat(e.target.value))} />
             </div>
         </ControlGroup>
 
-        <div className="mt-auto pt-2 space-y-2">
-            <div className="flex items-center justify-between gap-2 mb-1">
-                <button 
-                    onClick={toggleWireframe}
-                    className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-xs border transition-colors ${isWireframe ? 'bg-blue-900 border-blue-500 text-blue-200' : 'bg-[#222] border-gray-700 text-gray-400 hover:text-white'}`}
+        <div className="mt-auto pt-4 space-y-2 pb-6">
+            <div className="flex gap-2">
+                <Button 
+                    variant="primary" 
+                    className="flex-1 py-3 text-base flex items-center justify-center gap-2" 
+                    onClick={onPlay}
+                    disabled={isExporting}
                 >
-                    {isWireframe ? '🦴 骨架預覽中' : '🦴 骨架預覽 (Wireframe)'}
-                </button>
+                    {isPlaying ? '⏹ 停止播放' : '▶ 開始播放'}
+                </Button>
+                <Button 
+                    className="w-12 flex items-center justify-center text-lg" 
+                    onClick={toggleWireframe} 
+                    title={isWireframe ? "關閉線框模式" : "線框模式 (除錯)"}
+                >
+                    {isWireframe ? '▣' : '□'}
+                </Button>
             </div>
             
             <div className="flex gap-2">
-                <Button variant={isPlaying ? 'secondary' : 'primary'} className="flex-[2] text-base" onClick={onPlay}>
-                    {isPlaying ? '⏹ 停止' : '▶ 播放序列'}
+                <Button className="flex-1 py-2 text-xs" onClick={onSnapshot} disabled={isExporting || isPlaying}>
+                    📷 截圖 (PNG)
                 </Button>
-            </div>
-            <div className="flex gap-2">
-                 <Button className="flex-1" onClick={onSnapshot}>📷 截圖</Button>
-                 <Button className="flex-1" onClick={onExportGif} disabled={isExporting}>
-                    {isExporting ? '生成中...' : '🎬 匯出 GIF'}
-                 </Button>
+                <Button className="flex-1 py-2 text-xs" onClick={onExportGif} disabled={isExporting || isPlaying}>
+                    {isExporting ? '匯出中...' : '🎬 匯出 GIF'}
+                </Button>
             </div>
         </div>
     </div>
