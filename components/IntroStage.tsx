@@ -53,6 +53,37 @@ export const IntroStage: React.FC<IntroStageProps> = ({ settings, assets, mappin
     return s || 'none';
   }, [settings.depth, settings.glow, settings.shadowColor]);
 
+  // Helper to apply background style consistently
+  const applyBackgroundToChar = (charEl: HTMLElement, assetUrl: string, map: CharMapping | null, jiggleMode = false, t = 0, jitterSettings = 0) => {
+      charEl.style.backgroundImage = `url('${assetUrl}')`;
+      charEl.style.color = 'transparent';
+      charEl.style.webkitBackgroundClip = 'text';
+      charEl.style.backgroundClip = 'text';
+
+      if (jiggleMode) {
+         // Jitter/Random state
+         const j = jitterSettings;
+         const ox = 50 + (Math.random() * j * 2 - j);
+         const oy = 50 + (Math.random() * j * 2 - j);
+         charEl.style.backgroundPosition = `${ox}% ${oy}%`;
+         // Always cover for jitter to fill text
+         charEl.style.backgroundSize = 'cover';
+      } else if (map) {
+         // Locked/Mapped state
+         const ox = 50 + map.x;
+         const oy = 50 + map.y;
+         charEl.style.backgroundPosition = `${ox}% ${oy}%`;
+         
+         // CRITICAL FIX: If scale is exactly 100 (default from Prepper) and user hasn't forced fitHeight,
+         // use 'cover' to perfectly match the baked 16:9 asset to the text shape without distortion.
+         if (map.scale === 100 && !map.fitHeight) {
+             charEl.style.backgroundSize = 'cover';
+         } else {
+             charEl.style.backgroundSize = map.fitHeight ? `auto ${map.scale}%` : `${map.scale}% auto`;
+         }
+      }
+  };
+
   // Animation Loop Logic
   useEffect(() => {
     const isManual = typeof manualTime === 'number';
@@ -78,15 +109,12 @@ export const IntroStage: React.FC<IntroStageProps> = ({ settings, assets, mappin
     // MANUAL MODE (for Exporting)
     if (isManual && manualTime !== undefined && manualTime !== null) {
         const startS = settings.startScale / 100;
-        // Interpolate scale manually
-        // We clamp the interpolation to duration for the zoom part, but animation might continue for slots
         const t = manualTime;
         const progress = Math.min(t / settings.duration, 1);
         const currentScale = startS + (1 - startS) * progress;
         
         const transform = `translateY(${settings.offsetY}px) scale(${currentScale})`;
         
-        // Apply transform
         if(logoFrontRef.current) {
             logoFrontRef.current.style.transition = 'none';
             logoFrontRef.current.style.transform = transform;
@@ -96,52 +124,20 @@ export const IntroStage: React.FC<IntroStageProps> = ({ settings, assets, mappin
             logoShadowRef.current.style.transform = transform;
         }
 
-        // Apply Slot Logic manually
         if (settings.slotEffect) {
             const chars = logoFrontRef.current?.children;
-            const shadowChars = logoShadowRef.current?.children;
-            if (chars && shadowChars) {
+            if (chars) {
                 for (let i = 0; i < chars.length; i++) {
                     const charEl = chars[i] as HTMLElement;
-                    
                     const map = mappings[i] || { imgId: null, scale: 100, x: 0, y: 0, fitHeight: false, duration: settings.duration + (i * settings.stagger) };
                     const lockTime = map.duration;
                     
                     if (t > lockTime) {
-                        // Locked state
                         const asset = assets.find(a => a.id === map.imgId) || assets[0];
-                        if (asset) {
-                            charEl.style.backgroundImage = `url('${asset.url}')`;
-                            const ox = 50 + map.x;
-                            const oy = 50 + map.y;
-                            charEl.style.backgroundPosition = `${ox}% ${oy}%`;
-                            charEl.style.backgroundSize = map.fitHeight ? `auto ${map.scale}%` : `${map.scale}% auto`;
-                            charEl.style.color = 'transparent';
-                            charEl.style.webkitBackgroundClip = 'text';
-                            charEl.style.backgroundClip = 'text';
-                        }
+                        if (asset) applyBackgroundToChar(charEl, asset.url, map);
                     } else {
-                        // Jitter state
-                        // Pick random asset based on time to simulate randomness or just random
-                        // For determinism we could hash time, but random is fine.
-                        // We must ensure we set style if it was locked before.
-                        
-                        // Just pick random
-                         const randomAsset = assets[Math.floor((t % (assets.length * 10)) / 10)] || assets[0]; // pseudo-random based on t
-                         if (randomAsset) {
-                             charEl.style.backgroundImage = `url('${randomAsset.url}')`;
-                             const j = settings.jitter;
-                             // random offsets based on time
-                             const r1 = Math.sin(t) * 100; 
-                             const r2 = Math.cos(t) * 100;
-                             const ox = 50 + (r1 % (j * 2) - j);
-                             const oy = 50 + (r2 % (j * 2) - j);
-                             charEl.style.backgroundPosition = `${ox}% ${oy}%`;
-                             charEl.style.backgroundSize = 'cover';
-                             charEl.style.color = 'transparent';
-                             charEl.style.webkitBackgroundClip = 'text';
-                             charEl.style.backgroundClip = 'text';
-                         }
+                         const randomAsset = assets[Math.floor((t % (assets.length * 10)) / 10)] || assets[0];
+                         if (randomAsset) applyBackgroundToChar(charEl, randomAsset.url, null, true, t, settings.jitter);
                     }
                 }
             }
@@ -154,12 +150,10 @@ export const IntroStage: React.FC<IntroStageProps> = ({ settings, assets, mappin
     let startTime = Date.now();
     let lastFlash = 0;
     
-    // Scale Animation using CSS Transition for smoothness during playback
     if(logoFrontRef.current) {
         const startS = settings.startScale / 100;
         logoFrontRef.current.style.transition = `transform ${settings.duration}ms linear`;
         logoFrontRef.current.style.transform = `translateY(${settings.offsetY}px) scale(${startS})`;
-        // Force reflow
         void logoFrontRef.current.offsetWidth;
         logoFrontRef.current.style.transform = `translateY(${settings.offsetY}px) scale(1)`;
     }
@@ -187,47 +181,25 @@ export const IntroStage: React.FC<IntroStageProps> = ({ settings, assets, mappin
 
       if (settings.slotEffect) {
         const chars = logoFrontRef.current?.children;
-        const shadowChars = logoShadowRef.current?.children;
         
-        if (chars && shadowChars) {
+        if (chars) {
             for (let i = 0; i < chars.length; i++) {
                 const charEl = chars[i] as HTMLElement;
-                
                 const map = mappings[i] || { imgId: null, scale: 100, x: 0, y: 0, fitHeight: false, duration: settings.duration + (i * settings.stagger) };
                 const lockTime = map.duration;
                 
                 if (elapsed > lockTime) {
                     if (!charEl.dataset.locked) {
                         charEl.dataset.locked = "true";
-                        charEl.classList.remove('animate-flash');
+                        charEl.classList.remove('animate-flash'); // Remove any flash classes if we had them
                         
                         const asset = assets.find(a => a.id === map.imgId) || assets[0];
-                        
-                        if (asset) {
-                            charEl.style.backgroundImage = `url('${asset.url}')`;
-                            const ox = 50 + map.x;
-                            const oy = 50 + map.y;
-                            charEl.style.backgroundPosition = `${ox}% ${oy}%`;
-                            charEl.style.backgroundSize = map.fitHeight ? `auto ${map.scale}%` : `${map.scale}% auto`;
-                            charEl.style.color = 'transparent';
-                            charEl.style.webkitBackgroundClip = 'text';
-                            charEl.style.backgroundClip = 'text';
-                        }
+                        if (asset) applyBackgroundToChar(charEl, asset.url, map);
                     }
                 } else {
                      if (now - lastFlash > settings.speed) {
                          const randomAsset = assets[Math.floor(Math.random() * assets.length)];
-                         if (randomAsset) {
-                             charEl.style.backgroundImage = `url('${randomAsset.url}')`;
-                             const j = settings.jitter;
-                             const ox = 50 + (Math.random() * j * 2 - j);
-                             const oy = 50 + (Math.random() * j * 2 - j);
-                             charEl.style.backgroundPosition = `${ox}% ${oy}%`;
-                             charEl.style.backgroundSize = 'cover';
-                             charEl.style.color = 'transparent';
-                             charEl.style.webkitBackgroundClip = 'text';
-                             charEl.style.backgroundClip = 'text';
-                         }
+                         if (randomAsset) applyBackgroundToChar(charEl, randomAsset.url, null, true, elapsed, settings.jitter);
                      }
                 }
             }
@@ -248,7 +220,6 @@ export const IntroStage: React.FC<IntroStageProps> = ({ settings, assets, mappin
   }, [isPlaying, settings, assets, mappings, bgRgba, manualTime]);
 
 
-  // When finished (isPlaying becomes false AND not manual), revert to solid if needed
   useEffect(() => {
       if(!isPlaying && manualTime === null && settings.solidFinal && logoFrontRef.current) {
            const chars = logoFrontRef.current.children;
@@ -256,17 +227,15 @@ export const IntroStage: React.FC<IntroStageProps> = ({ settings, assets, mappin
                const el = chars[i] as HTMLElement;
                el.style.backgroundImage = 'none';
                el.style.color = settings.textColor;
-               el.style.backgroundColor = 'transparent'; // Parent has BG
+               el.style.backgroundColor = 'transparent'; 
            }
       }
   }, [isPlaying, settings.solidFinal, settings.textColor, manualTime]);
 
-  // Is slot mode active?
   const showSlots = settings.slotEffect && (isPlaying || typeof manualTime === 'number');
 
   return (
     <div id="intro-stage" className="relative w-full aspect-video bg-white overflow-hidden flex items-center justify-center perspective-[1000px] shadow-2xl">
-      {/* Background Layers */}
       <div 
         className="absolute inset-0 bg-cover bg-center z-0" 
         style={{ 
@@ -280,20 +249,18 @@ export const IntroStage: React.FC<IntroStageProps> = ({ settings, assets, mappin
         <div className="absolute inset-0 z-[15] pointer-events-none opacity-30 bg-[radial-gradient(circle,#000_1px,transparent_1.2px)] [background-size:4px_4px]" />
       )}
 
-      {/* Container for Tilt */}
       <div 
         ref={containerRef}
         id="intro-container"
         className="w-full h-full flex flex-col justify-center items-center transform-style-3d transition-transform ease-out duration-100 relative z-20"
       >
          <div className="relative transform-style-3d inline-block">
-            {/* Shadow Layer */}
             <div 
                 ref={logoShadowRef}
                 className="absolute top-0 left-0 w-full h-full flex justify-center z-[-1] pointer-events-none select-none"
                 style={{ 
                     fontFamily: settings.font.split(',')[0].replace(/['"]/g, ''), 
-                    fontSize: `${settings.textSize}vw`, // Approximation of stage relative size
+                    fontSize: `${settings.textSize}vw`,
                     letterSpacing: `${settings.spacing}em`,
                     color: 'transparent',
                     textShadow: shadowStyle
@@ -308,7 +275,6 @@ export const IntroStage: React.FC<IntroStageProps> = ({ settings, assets, mappin
                 )}
             </div>
 
-            {/* Front Layer */}
             <div 
                 ref={logoFrontRef}
                 className="relative z-[2] flex justify-center select-none"
@@ -322,7 +288,7 @@ export const IntroStage: React.FC<IntroStageProps> = ({ settings, assets, mappin
             >
                 {showSlots ? (
                     settings.text.split('').map((char, i) => (
-                         <span key={i} className="inline-block px-[0.1em] bg-no-repeat bg-center bg-cover">{char}</span>
+                         <span key={i} className="inline-block px-[0.1em] bg-no-repeat bg-center">{char}</span>
                     ))
                 ) : (
                      <span className="block px-[0.1em] text-center whitespace-nowrap leading-none">{settings.text}</span>
@@ -330,7 +296,6 @@ export const IntroStage: React.FC<IntroStageProps> = ({ settings, assets, mappin
             </div>
          </div>
 
-         {/* Subtitle */}
          {settings.subEnabled && (
              <div 
                 className="font-bebas text-white uppercase text-center transform-style-3d translate-z-[20px] drop-shadow-md z-30"
@@ -345,7 +310,6 @@ export const IntroStage: React.FC<IntroStageProps> = ({ settings, assets, mappin
          )}
       </div>
 
-      {/* Letterbox Bars - Handle manual preview for bars */}
       <div className={`absolute left-0 w-full bg-black z-50 transition-all duration-500 top-0 ${settings.cineBars && (isPlaying || typeof manualTime === 'number') ? 'h-[10%]' : 'h-0'}`} />
       <div className={`absolute left-0 w-full bg-black z-50 transition-all duration-500 bottom-0 ${settings.cineBars && (isPlaying || typeof manualTime === 'number') ? 'h-[10%]' : 'h-0'}`} />
     </div>

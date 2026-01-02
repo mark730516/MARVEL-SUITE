@@ -20,11 +20,16 @@ export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initi
   const [isExporting, setIsExporting] = useState(false);
   const [manualTime, setManualTime] = useState<number | null>(null);
 
-  // Load imported assets on mount/change
+  // Load imported assets on mount/change and reset mappings to clean state to match Prepper
   useEffect(() => {
     if (importedAssets.length > 0) {
       const newAssets = importedAssets.map(a => ({ id: Math.random().toString(36).substr(2, 9), url: a.url }));
-      setAssets(prev => [...prev, ...newAssets]);
+      setAssets(newAssets); // Replace assets, don't append, to ensure strict sync with Prepper
+      
+      // Force refresh mappings to use the new assets with 100% scale (defaults)
+      // This ensures the "Cover" logic in IntroStage takes over for a 1:1 match
+      setMappings([]); // Clear first to trigger re-calc in next effect or do it here? 
+      // Actually, relying on the next useEffect is safer if we just cleared assets, but let's be explicit:
     }
   }, [importedAssets]);
 
@@ -39,28 +44,40 @@ export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initi
     setMappings(prev => {
         const newText = settings.text;
         const newMappings: CharMapping[] = [];
+        
+        // Check if assets were just refreshed (simple heuristic: prev length mismatch or asset mismatch)
+        // For seamless transfer, we generally prioritize the Default Loop behavior if the character doesn't exist
+        
         for (let i = 0; i < newText.length; i++) {
             const char = newText[i];
             const existing = prev[i];
-            // If existing char matches, keep settings, else reset.
-            // Also try to default imgId round-robin style if assets exist
-            const defaultImgId = assets.length > 0 ? assets[i % assets.length].id : null;
             
-            // Calculate default duration based on global sliders
+            // Round-robin default asset
+            const defaultImgId = assets.length > 0 ? assets[i % assets.length].id : null;
             const defaultDuration = settings.duration + (i * settings.stagger);
 
+            // If we have an existing mapping for this specific character index and char, keep its custom tweaks.
+            // UNLESS we just imported new assets (which we can infer if the existing imgId is not in the new assets list).
+            
+            let keepExisting = false;
             if (existing && existing.char === char) {
-                // We overwrite duration with the new calculated one to ensure sliders work dynamically
-                // Users can manually override later, but moving the slider resets the "pattern"
+                if (existing.imgId && assets.find(a => a.id === existing.imgId)) {
+                    keepExisting = true;
+                } else if (existing.imgId === null) {
+                    keepExisting = true; // Kept as default/random
+                }
+            }
+
+            if (keepExisting) {
                 newMappings.push({
                     ...existing,
-                    duration: defaultDuration
+                    duration: defaultDuration // Update duration dynamic
                 });
             } else {
                 newMappings.push({
                     char,
                     imgId: defaultImgId,
-                    scale: 100,
+                    scale: 100, // CRITICAL: 100 triggers 'cover' mode in IntroStage
                     x: 0,
                     y: 0,
                     fitHeight: false,
