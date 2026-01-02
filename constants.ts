@@ -13,62 +13,34 @@ export const FONTS = [
 export const ANIMATION_PRESETS = [
   {
     id: 'classic',
-    label: '經典 (Classic)',
+    label: '經典漫威 (Classic)',
     settings: {
+      solidBaseDuration: 1000,
       duration: 4000,
-      stagger: 200,
+      zoomDuration: 8000,
+      endHoldDuration: 2000,
+      stagger: 300,
       speed: 80,
       jitter: 5,
       startScale: 100,
-      startStyle: 'solid',
       slotEffect: true,
       tilt: false,
-      endStyle: 'solid',
+      endStyle: 'image',
       offsetY: 0
     }
   },
   {
     id: 'rapid',
-    label: '極速 (Rapid)',
+    label: '快節奏 (Rapid)',
     settings: {
-      duration: 2000,
-      stagger: 80,
+      solidBaseDuration: 500,
+      duration: 1500,
+      zoomDuration: 3000,
+      endHoldDuration: 1000,
+      stagger: 100,
       speed: 40,
       jitter: 8,
       startScale: 150,
-      startStyle: 'image',
-      slotEffect: true,
-      tilt: true,
-      endStyle: 'solid',
-      offsetY: 0
-    }
-  },
-  {
-    id: 'slow',
-    label: '慢燃 (Slow)',
-    settings: {
-      duration: 6000,
-      stagger: 400,
-      speed: 120,
-      jitter: 2,
-      startScale: 80,
-      startStyle: 'solid',
-      slotEffect: true,
-      tilt: false,
-      endStyle: 'solid',
-      offsetY: 0
-    }
-  },
-  {
-    id: 'chaos',
-    label: '暴走 (Chaos)',
-    settings: {
-      duration: 3500,
-      stagger: 150,
-      speed: 30,
-      jitter: 20,
-      startScale: 200,
-      startStyle: 'image',
       slotEffect: true,
       tilt: true,
       endStyle: 'image',
@@ -76,18 +48,20 @@ export const ANIMATION_PRESETS = [
     }
   },
   {
-    id: 'clean',
-    label: '簡約 (Clean)',
+    id: 'epic',
+    label: '史詩長鏡頭 (Epic)',
     settings: {
-      duration: 3000,
-      stagger: 0,
+      solidBaseDuration: 2000,
+      duration: 6000,
+      zoomDuration: 12000,
+      endHoldDuration: 3000,
+      stagger: 800,
       speed: 100,
-      jitter: 0,
-      startScale: 110,
-      startStyle: 'solid',
-      slotEffect: false,
+      jitter: 3,
+      startScale: 80,
+      slotEffect: true,
       tilt: false,
-      endStyle: 'solid',
+      endStyle: 'image',
       offsetY: 0
     }
   }
@@ -117,10 +91,16 @@ export const DEFAULT_INTRO_SETTINGS: IntroSettings = {
   tiltAuto: false,
   tiltAngleX: 0,
   tiltAngleY: 0,
-  duration: 4000,
-  stagger: 200,
-  startStyle: 'solid', // Default start style
-  endStyle: 'solid',
+  
+  // Revised Defaults based on user request
+  solidBaseDuration: 1000, // 1s Solid
+  duration: 5000,          // 5s Spinning
+  stagger: 500,            // Slow stop
+  zoomDuration: 8000,      // Slow zoom
+  endHoldDuration: 2000,
+  
+  startStyle: 'solid',
+  endStyle: 'image',
   speed: 80,
   jitter: 5,
   startScale: 100,

@@ -19,6 +19,7 @@ export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initi
   const [isPlaying, setIsPlaying] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [manualTime, setManualTime] = useState<number | null>(null);
+  const [isWireframe, setIsWireframe] = useState(false);
 
   // Load imported assets on mount/change and reset mappings to clean state to match Prepper
   useEffect(() => {
@@ -187,7 +188,7 @@ export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initi
         const maxDuration = Math.max(
             settings.duration + (settings.text.length * settings.stagger),
             ...mappings.map(m => m.duration)
-        ) + 500; // Add buffer
+        ) + settings.endHoldDuration; // Add end buffer
 
         const step = 1000 / fps;
         const stageEl = document.getElementById('intro-stage');
@@ -248,6 +249,8 @@ export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initi
             onExportGif={handleExportGif}
             isPlaying={isPlaying}
             isExporting={isExporting}
+            isWireframe={isWireframe}
+            toggleWireframe={() => setIsWireframe(!isWireframe)}
         />
         <div className="flex-1 bg-black flex items-center justify-center relative overflow-hidden">
              {/* Stage handles its own scaling now, just provide full space */}
@@ -260,6 +263,7 @@ export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initi
                     manualTime={manualTime}
                     progress={0}
                     onFinish={() => setIsPlaying(false)}
+                    isWireframe={isWireframe}
             />
         </div>
     </div>

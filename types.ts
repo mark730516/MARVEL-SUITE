@@ -24,7 +24,7 @@ export interface CharMapping {
   x: number;
   y: number;
   fitHeight: boolean;
-  duration: number; // ms, exact time to stop animation for this char
+  duration: number; // ms, calculated override time
 }
 
 export interface IntroSettings {
@@ -50,14 +50,17 @@ export interface IntroSettings {
   slotEffect: boolean;
   tilt: boolean;
   tiltAuto: boolean;
-  tiltAngleX: number; // New: Manual tilt state X
-  tiltAngleY: number; // New: Manual tilt state Y
+  tiltAngleX: number; // Manual tilt state X
+  tiltAngleY: number; // Manual tilt state Y
   
   // Timeline / Phases
-  duration: number; // ms (Phase 1 duration & Base lock time)
-  stagger: number; // ms (Phase 3 Interval)
+  solidBaseDuration: number; // ms (Phase 1: Solid Color Time)
+  duration: number; // ms (Phase 2: Spinning Loop Time)
+  zoomDuration: number; // ms (Independent: Zoom animation duration)
+  endHoldDuration: number; // ms (Phase 4: Final Hold time)
+  stagger: number; // ms (Phase 3: Stop Interval per char)
   
-  startStyle: 'solid' | 'image'; // New: Phase 1 appearance
+  startStyle: 'solid' | 'image'; // (Deprecated logic, overrides by solidBaseDuration)
   endStyle: 'solid' | 'image'; // Phase 4 appearance
   
   speed: number; // ms (flash speed)
@@ -68,7 +71,7 @@ export interface IntroSettings {
   // Scene
   bgImage: string | null;
   bgDimmer: number;
-  bgBlur: number; // New: Background blur intensity
+  bgBlur: number; // Background blur intensity
   halftone: boolean;
   cineBars: boolean;
   audioUrl: string | null;
