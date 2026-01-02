@@ -134,8 +134,24 @@ export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initi
   const handleSnapshot = async () => {
     const el = document.getElementById('intro-stage');
     if (el) {
-        // Temporarily hide UI overlays if any
-        const canvas = await html2canvas(el, { scale: 2, backgroundColor: null, useCORS: true });
+        // html2canvas captures based on current DOM dimensions.
+        // Since element is 1920x1080 scaled down, capture might be small if we capture 'what is seen'.
+        // However, html2canvas supports 'windowWidth/windowHeight' options, but best is to rely on scale.
+        // If element is transformed, html2canvas attempts to replicate that.
+        // To get full resolution, we can pass scale: 1 / currentScale. 
+        // But simpler: just capture and let it handle 1920.
+        // Actually, if we use window.devicePixelRatio, it helps.
+        
+        // Strategy: We rely on the internal width/height being 1920x1080.
+        // If we pass scale: 1, it should output 1920x1080 if the CSS width is 1920.
+        const canvas = await html2canvas(el, { 
+            scale: 1, 
+            backgroundColor: null, 
+            useCORS: true,
+            // Force dimensions to be safe
+            width: 1920,
+            height: 1080
+        });
         const link = document.createElement('a');
         link.download = 'marvel-intro-snapshot.png';
         link.href = canvas.toDataURL('image/png');
@@ -162,7 +178,9 @@ export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initi
             workers: 2,
             quality: 10,
             workerScript: workerUrl,
-            // Canvas width/height will be determined by added frames
+            // Width/Height will be set by addFrame
+            width: 960, // Export at 50% for performance and file size (half of 1920)
+            height: 540
         });
 
         const fps = 10;
@@ -182,9 +200,11 @@ export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initi
             if (stageEl) {
                 const canvas = await html2canvas(stageEl, {
                     useCORS: true,
-                    scale: 0.5, // 50% scale for performance
+                    scale: 0.5, // 50% scale of 1920x1080 -> 960x540
                     backgroundColor: null,
-                    logging: false
+                    logging: false,
+                    width: 1920,
+                    height: 1080
                 });
                 gif.addFrame(canvas, { delay: step });
             }
@@ -230,8 +250,8 @@ export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initi
             isExporting={isExporting}
         />
         <div className="flex-1 bg-black flex items-center justify-center relative overflow-hidden">
-            <div className="max-w-full max-h-full aspect-video shadow-2xl">
-                <IntroStage 
+             {/* Stage handles its own scaling now, just provide full space */}
+             <IntroStage 
                     settings={settings}
                     onUpdateSettings={(vals) => setSettings(s => ({...s, ...vals}))}
                     assets={assets}
@@ -240,8 +260,7 @@ export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initi
                     manualTime={manualTime}
                     progress={0}
                     onFinish={() => setIsPlaying(false)}
-                />
-            </div>
+            />
         </div>
     </div>
   );

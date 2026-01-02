@@ -13,11 +13,37 @@ interface IntroStageProps {
 }
 
 export const IntroStage: React.FC<IntroStageProps> = ({ settings, onUpdateSettings, assets, mappings, isPlaying, manualTime, onFinish }) => {
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const logoFrontRef = useRef<HTMLDivElement>(null);
   const logoShadowRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   
+  const [scale, setScale] = useState(1);
+
+  // Auto-scale logic to fit 1920x1080 into the parent container
+  useEffect(() => {
+    const handleResize = () => {
+        if (wrapperRef.current) {
+            const { clientWidth, clientHeight } = wrapperRef.current;
+            const targetW = 1920;
+            const targetH = 1080;
+            
+            const scaleX = clientWidth / targetW;
+            const scaleY = clientHeight / targetH;
+            
+            // Fit contain
+            setScale(Math.min(scaleX, scaleY));
+        }
+    };
+
+    handleResize();
+    const observer = new ResizeObserver(handleResize);
+    if (wrapperRef.current) observer.observe(wrapperRef.current);
+
+    return () => observer.disconnect();
+  }, []);
+
   // Audio Control
   useEffect(() => {
     if (settings.audioUrl && isPlaying && manualTime === null) {
@@ -145,6 +171,10 @@ export const IntroStage: React.FC<IntroStageProps> = ({ settings, onUpdateSettin
     }
     return s || 'none';
   }, [settings.depth, settings.glow, settings.shadowColor]);
+
+  // Font Size Helpers (Convert % of Canvas Width to PX)
+  const mainFontSize = `${(1920 * settings.textSize) / 100}px`;
+  const subFontSize = `${(1920 * settings.subSize) / 100}px`;
 
   // Helper to apply background style consistently
   const applyBackgroundToChar = (charEl: HTMLElement, assetUrl: string, map: CharMapping | null, jiggleMode = false, t = 0, jitterSettings = 0) => {
@@ -351,88 +381,98 @@ export const IntroStage: React.FC<IntroStageProps> = ({ settings, onUpdateSettin
   const showSlots = settings.slotEffect && (isPlaying || typeof manualTime === 'number' || settings.endStyle === 'image');
 
   return (
-    <div 
-        id="intro-stage" 
-        className={`relative w-full aspect-video bg-white overflow-hidden flex items-center justify-center shadow-2xl ${settings.tilt && !settings.tiltAuto ? 'cursor-grab active:cursor-grabbing' : ''}`}
-    >
-      <div 
-        className="absolute inset-0 bg-cover bg-center z-0" 
-        style={{ 
-            backgroundImage: settings.bgImage ? `url(${settings.bgImage})` : 'none', 
-            opacity: 1,
-            filter: `blur(${settings.bgBlur}px)`
-        }} 
-      />
-      <div className="absolute inset-0 z-[5] bg-black pointer-events-none" style={{ opacity: settings.bgDimmer }} />
-      {settings.halftone && (
-        <div className="absolute inset-0 z-[15] pointer-events-none opacity-30 bg-[radial-gradient(circle,#000_1px,transparent_1.2px)] [background-size:4px_4px]" />
-      )}
+    <div ref={wrapperRef} className="w-full h-full flex items-center justify-center bg-black/10 overflow-hidden relative">
+        <div 
+            id="intro-stage" 
+            className={`relative bg-white overflow-hidden flex items-center justify-center shadow-2xl ${settings.tilt && !settings.tiltAuto ? 'cursor-grab active:cursor-grabbing' : ''}`}
+            style={{
+                width: 1920,
+                height: 1080,
+                transform: `scale(${scale})`,
+                // Force hardware acceleration for smoother scaling
+                backfaceVisibility: 'hidden',
+                willChange: 'transform',
+            }}
+        >
+        <div 
+            className="absolute inset-0 bg-cover bg-center z-0" 
+            style={{ 
+                backgroundImage: settings.bgImage ? `url(${settings.bgImage})` : 'none', 
+                opacity: 1,
+                filter: `blur(${settings.bgBlur}px)`
+            }} 
+        />
+        <div className="absolute inset-0 z-[5] bg-black pointer-events-none" style={{ opacity: settings.bgDimmer }} />
+        {settings.halftone && (
+            <div className="absolute inset-0 z-[15] pointer-events-none opacity-30 bg-[radial-gradient(circle,#000_1px,transparent_1.2px)] [background-size:4px_4px]" />
+        )}
 
-      <div 
-        ref={containerRef}
-        id="intro-container"
-        className="w-full h-full flex flex-col justify-center items-center transition-transform ease-out duration-100 relative z-20"
-        style={{ transformStyle: 'preserve-3d' }}
-      >
-         <div className="relative inline-block" style={{ transformStyle: 'preserve-3d' }}>
-            <div 
-                ref={logoShadowRef}
-                className="absolute top-0 left-0 w-full h-full flex justify-center z-[-1] pointer-events-none select-none"
-                style={{ 
-                    fontFamily: settings.font.split(',')[0].replace(/['"]/g, ''), 
-                    fontSize: `${settings.textSize}vw`,
-                    letterSpacing: `${settings.spacing}em`,
-                    color: 'transparent',
-                    textShadow: shadowStyle
-                }}
-            >
-                {showSlots ? (
-                    settings.text.split('').map((char, i) => (
-                        <span key={i} className="inline-block px-[0.1em]">{char}</span>
-                    ))
-                ) : (
-                    <span className="block px-[0.1em] text-center whitespace-nowrap leading-none">{settings.text}</span>
-                )}
+        <div 
+            ref={containerRef}
+            id="intro-container"
+            className="w-full h-full flex flex-col justify-center items-center transition-transform ease-out duration-100 relative z-20"
+            style={{ transformStyle: 'preserve-3d' }}
+        >
+            <div className="relative inline-block" style={{ transformStyle: 'preserve-3d' }}>
+                <div 
+                    ref={logoShadowRef}
+                    className="absolute top-0 left-0 w-full h-full flex justify-center z-[-1] pointer-events-none select-none"
+                    style={{ 
+                        fontFamily: settings.font.split(',')[0].replace(/['"]/g, ''), 
+                        fontSize: mainFontSize,
+                        letterSpacing: `${settings.spacing}em`,
+                        color: 'transparent',
+                        textShadow: shadowStyle
+                    }}
+                >
+                    {showSlots ? (
+                        settings.text.split('').map((char, i) => (
+                            <span key={i} className="inline-block px-[0.1em]">{char}</span>
+                        ))
+                    ) : (
+                        <span className="block px-[0.1em] text-center whitespace-nowrap leading-none">{settings.text}</span>
+                    )}
+                </div>
+
+                <div 
+                    ref={logoFrontRef}
+                    className="relative z-[2] flex justify-center select-none"
+                    style={{
+                        fontFamily: settings.font.split(',')[0].replace(/['"]/g, ''),
+                        fontSize: mainFontSize,
+                        letterSpacing: `${settings.spacing}em`,
+                        color: settings.textColor,
+                        backgroundColor: showSlots ? 'transparent' : bgRgba,
+                    }}
+                >
+                    {showSlots ? (
+                        settings.text.split('').map((char, i) => (
+                            <span key={i} className="inline-block px-[0.1em] bg-no-repeat bg-center">{char}</span>
+                        ))
+                    ) : (
+                        <span className="block px-[0.1em] text-center whitespace-nowrap leading-none">{settings.text}</span>
+                    )}
+                </div>
             </div>
 
-            <div 
-                ref={logoFrontRef}
-                className="relative z-[2] flex justify-center select-none"
-                style={{
-                    fontFamily: settings.font.split(',')[0].replace(/['"]/g, ''),
-                    fontSize: `${settings.textSize}vw`,
-                    letterSpacing: `${settings.spacing}em`,
-                    color: settings.textColor,
-                    backgroundColor: showSlots ? 'transparent' : bgRgba,
-                }}
-            >
-                {showSlots ? (
-                    settings.text.split('').map((char, i) => (
-                         <span key={i} className="inline-block px-[0.1em] bg-no-repeat bg-center">{char}</span>
-                    ))
-                ) : (
-                     <span className="block px-[0.1em] text-center whitespace-nowrap leading-none">{settings.text}</span>
-                )}
-            </div>
-         </div>
+            {settings.subEnabled && (
+                <div 
+                    className="font-bebas text-white uppercase text-center drop-shadow-md z-30"
+                    style={{
+                        marginTop: `${settings.subMargin}%`,
+                        fontSize: subFontSize,
+                        letterSpacing: `${settings.subSpacing}em`,
+                        transform: 'translateZ(20px)'
+                    }}
+                >
+                    {settings.subText}
+                </div>
+            )}
+        </div>
 
-         {settings.subEnabled && (
-             <div 
-                className="font-bebas text-white uppercase text-center drop-shadow-md z-30"
-                style={{
-                    marginTop: `${settings.subMargin}%`,
-                    fontSize: `${settings.subSize}vw`,
-                    letterSpacing: `${settings.subSpacing}em`,
-                    transform: 'translateZ(20px)'
-                }}
-             >
-                {settings.subText}
-             </div>
-         )}
-      </div>
-
-      <div className={`absolute left-0 w-full bg-black z-50 transition-all duration-500 top-0 ${settings.cineBars && (isPlaying || typeof manualTime === 'number') ? 'h-[10%]' : 'h-0'}`} />
-      <div className={`absolute left-0 w-full bg-black z-50 transition-all duration-500 bottom-0 ${settings.cineBars && (isPlaying || typeof manualTime === 'number') ? 'h-[10%]' : 'h-0'}`} />
+        <div className={`absolute left-0 w-full bg-black z-50 transition-all duration-500 top-0 ${settings.cineBars && (isPlaying || typeof manualTime === 'number') ? 'h-[10%]' : 'h-0'}`} />
+        <div className={`absolute left-0 w-full bg-black z-50 transition-all duration-500 bottom-0 ${settings.cineBars && (isPlaying || typeof manualTime === 'number') ? 'h-[10%]' : 'h-0'}`} />
+        </div>
     </div>
   );
 };

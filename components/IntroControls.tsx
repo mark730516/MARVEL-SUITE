@@ -258,7 +258,7 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
                                     : 'bg-transparent text-gray-500 border-gray-700 hover:border-gray-500'
                                 }`}
                             >
-                                保留影像
+                                保留最後靜止畫面
                             </button>
                         </div>
                     </div>
@@ -334,15 +334,20 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
                                             </select>
 
                                             {/* Individual Duration Override */}
-                                            <input 
-                                                type="number" 
-                                                step="0.01"
-                                                className="w-12 bg-[#222] text-[10px] text-orange-400 rounded p-1.5 border border-gray-600 focus:border-orange-500 text-right focus:outline-none"
-                                                value={(map.duration / 1000).toFixed(2)}
-                                                onChange={(e) => updateMapping(i, { duration: parseFloat(e.target.value) * 1000 })}
-                                                title="定格時間 (秒)"
-                                                placeholder="秒"
-                                            />
+                                            <div className="flex items-center bg-[#222] rounded border border-gray-700 px-2 h-[26px] hover:border-orange-500 transition-colors" title="獨立定格時間">
+                                                <span className="text-[9px] text-gray-500 mr-1">⏱</span>
+                                                <input 
+                                                    type="number" 
+                                                    step="0.05"
+                                                    className="w-10 bg-transparent text-[10px] text-orange-400 text-right focus:outline-none font-mono p-0 appearance-none"
+                                                    value={(map.duration / 1000).toFixed(2)}
+                                                    onChange={(e) => {
+                                                        const val = parseFloat(e.target.value);
+                                                        if (!isNaN(val)) updateMapping(i, { duration: val * 1000 });
+                                                    }}
+                                                />
+                                                <span className="text-[9px] text-gray-500 ml-1">s</span>
+                                            </div>
                                         </div>
 
                                         <div className="grid grid-cols-3 gap-1">
