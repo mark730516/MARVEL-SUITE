@@ -56,8 +56,8 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
   const timelineStats = useMemo(() => {
       const t1 = settings.solidBaseDuration;
       const t2 = t1 + settings.duration; // Spin End
-      const charCount = settings.text.length || 1;
-      const rippleDuration = (charCount - 1) * settings.stagger;
+      const charCount = Math.max(settings.text.length, 1);
+      const rippleDuration = Math.max(0, (charCount - 1) * settings.stagger);
       const t3 = t2 + rippleDuration; // All Locked
       const total = t3 + settings.endHoldDuration;
       
@@ -143,33 +143,57 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
         <ControlGroup title="3. 動畫流程 (Time Sequence)">
             {/* 4-Phase Timeline Visualizer */}
             <div className="bg-[#111] p-3 rounded mb-4 border border-gray-700 font-mono text-[10px] select-none">
-                <div className="flex justify-between text-gray-400 mb-2">
-                    <span>時間軸分佈</span>
-                    <span className="text-gray-500 font-bold">總長: {(timelineStats.total / 1000).toFixed(1)}s</span>
+                <div className="flex justify-between items-end mb-2">
+                    <span className="text-gray-400 font-bold">時間軸預覽 (Timeline)</span>
+                    <span className="text-white font-bold bg-gray-800 px-2 py-0.5 rounded border border-gray-600">
+                        Total: {(timelineStats.total / 1000).toFixed(1)}s
+                    </span>
                 </div>
-                <div className="h-5 w-full bg-gray-800 rounded flex relative overflow-hidden ring-1 ring-gray-700">
-                    {/* Phase 1: Solid (Blue) */}
-                    <div className="h-full bg-blue-600/70 border-r border-black/20 flex items-center justify-center text-white/70" style={{width: `${pctSolid}%`}} title="純色期">
-                        {pctSolid > 10 && "1.純色"}
+                
+                {/* Progress Bar */}
+                <div className="h-6 w-full bg-gray-900 rounded-md flex relative overflow-hidden ring-1 ring-gray-700 mb-2">
+                    <div className="h-full bg-blue-900/80 border-r border-blue-500/30 flex items-center justify-center text-blue-200 transition-all duration-300" style={{width: `${pctSolid}%`}} title={`Phase 1: Solid (${(timelineStats.solid/1000).toFixed(1)}s)`}>
+                        {pctSolid > 15 && <span className="drop-shadow-md font-bold">Solid</span>}
                     </div>
-                    {/* Phase 2: Spin (Orange) */}
-                    <div className="h-full bg-orange-600/70 border-r border-black/20 flex items-center justify-center text-white/70" style={{width: `${pctSpin}%`}} title="運轉期">
-                        {pctSpin > 10 && "2.運轉"}
+                    <div className="h-full bg-orange-900/80 border-r border-orange-500/30 flex items-center justify-center text-orange-200 transition-all duration-300" style={{width: `${pctSpin}%`}} title={`Phase 2: Spin (${(timelineStats.spin/1000).toFixed(1)}s)`}>
+                         {pctSpin > 15 && <span className="drop-shadow-md font-bold">Spin</span>}
                     </div>
-                    {/* Phase 3: Ripple (Purple) */}
-                    <div className="h-full bg-purple-600/70 border-r border-black/20 flex items-center justify-center text-white/70" style={{width: `${pctRipple}%`}} title="鎖定期">
-                        {pctRipple > 10 && "3.鎖定"}
+                    <div className="h-full bg-purple-900/80 border-r border-purple-500/30 flex items-center justify-center text-purple-200 transition-all duration-300" style={{width: `${pctRipple}%`}} title={`Phase 3: Ripple (${(timelineStats.ripple/1000).toFixed(1)}s)`}>
+                        {pctRipple > 15 && <span className="drop-shadow-md font-bold">Lock</span>}
                     </div>
-                    {/* Phase 4: Hold (Green) */}
-                    <div className="h-full bg-green-600/70 flex items-center justify-center text-white/70" style={{width: `${pctHold}%`}} title="展示期">
-                        {pctHold > 10 && "4.展示"}
+                    <div className="h-full bg-green-900/80 flex items-center justify-center text-green-200 transition-all duration-300" style={{width: `${pctHold}%`}} title={`Phase 4: Hold (${(timelineStats.hold/1000).toFixed(1)}s)`}>
+                        {pctHold > 15 && <span className="drop-shadow-md font-bold">Hold</span>}
+                    </div>
+                </div>
+
+                {/* Legend / Breakdown */}
+                <div className="grid grid-cols-4 gap-1 text-[9px] text-center bg-black/20 p-1 rounded">
+                    <div className="text-blue-400">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full mx-auto mb-1 shadow-sm shadow-blue-500/50"></div>
+                        <span className="block font-bold">P1. Solid</span>
+                        <span className="opacity-70">{(timelineStats.solid/1000).toFixed(1)}s</span>
+                    </div>
+                    <div className="text-orange-400">
+                        <div className="w-2 h-2 bg-orange-500 rounded-full mx-auto mb-1 shadow-sm shadow-orange-500/50"></div>
+                        <span className="block font-bold">P2. Spin</span>
+                        <span className="opacity-70">{(timelineStats.spin/1000).toFixed(1)}s</span>
+                    </div>
+                    <div className="text-purple-400">
+                        <div className="w-2 h-2 bg-purple-500 rounded-full mx-auto mb-1 shadow-sm shadow-purple-500/50"></div>
+                        <span className="block font-bold">P3. Lock</span>
+                        <span className="opacity-70">{(timelineStats.ripple/1000).toFixed(1)}s</span>
+                    </div>
+                    <div className="text-green-400">
+                        <div className="w-2 h-2 bg-green-500 rounded-full mx-auto mb-1 shadow-sm shadow-green-500/50"></div>
+                        <span className="block font-bold">P4. Hold</span>
+                        <span className="opacity-70">{(timelineStats.hold/1000).toFixed(1)}s</span>
                     </div>
                 </div>
             </div>
 
             <div className="space-y-4">
                 {/* Phase 1 Control */}
-                <div className="relative border-l-2 border-blue-500 pl-3">
+                <div className="relative border-l-2 border-blue-500 pl-3 transition-colors hover:border-blue-400">
                     <h3 className="text-xs font-bold text-blue-400 uppercase mb-2">Phase 1: 純色靜止 (Solid)</h3>
                     <RangeControl 
                         label="靜止持續時間 (Duration)" 
@@ -189,7 +213,7 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
                 </div>
 
                 {/* Phase 2 Control */}
-                <div className="relative border-l-2 border-orange-500 pl-3">
+                <div className="relative border-l-2 border-orange-500 pl-3 transition-colors hover:border-orange-400">
                     <h3 className="text-xs font-bold text-orange-400 uppercase mb-2">Phase 2: 運轉 (Spinning)</h3>
                     <RangeControl 
                         label="滾動運轉時間 (Duration)" 
@@ -214,7 +238,7 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
                 </div>
 
                 {/* Phase 3 Control */}
-                <div className="relative border-l-2 border-purple-500 pl-3">
+                <div className="relative border-l-2 border-purple-500 pl-3 transition-colors hover:border-purple-400">
                     <h3 className="text-xs font-bold text-purple-400 uppercase mb-2">Phase 3: 鎖定 (Locking)</h3>
                     <div className="bg-purple-500/10 p-2 rounded border border-purple-500/30">
                         <RangeControl 
@@ -230,7 +254,7 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
                 </div>
 
                 {/* Phase 4 Control */}
-                <div className="relative border-l-2 border-green-500 pl-3">
+                <div className="relative border-l-2 border-green-500 pl-3 transition-colors hover:border-green-400">
                     <h3 className="text-xs font-bold text-green-400 uppercase mb-2">Phase 4: 結尾 (End)</h3>
                     <RangeControl 
                         label="結束停留時間 (Hold Duration)" 
