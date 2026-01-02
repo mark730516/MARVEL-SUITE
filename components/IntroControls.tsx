@@ -135,7 +135,7 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
                     <TextInput value={settings.subText} onChange={e => updateSetting('subText', e.target.value)} />
                     <RangeControl label="Size" min={1} max={30} value={settings.subSize} onChange={e => updateSetting('subSize', parseFloat(e.target.value))} />
                     <RangeControl label="Spacing" min={0} max={2} step={0.1} value={settings.subSpacing} onChange={e => updateSetting('subSpacing', parseFloat(e.target.value))} />
-                    <RangeControl label="頂部邊距" min={0} max={10} step={0.5} value={settings.subMargin} onChange={e => updateSetting('subMargin', parseFloat(e.target.value))} />
+                    <RangeControl label="頂部邊距 (Top Margin)" min={-15} max={20} step={0.5} value={settings.subMargin} onChange={e => updateSetting('subMargin', parseFloat(e.target.value))} />
                 </div>
             )}
         </ControlGroup>
