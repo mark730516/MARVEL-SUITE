@@ -291,6 +291,88 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
             )}
         </ControlGroup>
 
+        <ControlGroup title="4. 場景與素材 (Scene & Assets)">
+            {/* Assets Management */}
+            <div className="mb-4 p-2 bg-black/20 rounded border border-gray-700">
+                <label className="text-[10px] uppercase text-gray-400 mb-2 block">圖片素材庫 (Assets)</label>
+                <div className="flex gap-2 mb-2">
+                    <label className="flex-1 cursor-pointer bg-[#333] hover:bg-gray-600 text-white text-xs py-2 px-3 rounded flex items-center justify-center border border-gray-600 transition-colors">
+                        <span>+ 新增圖片</span>
+                        <input type="file" multiple accept="image/*" onChange={onUploadAssets} className="hidden" />
+                    </label>
+                    <Button onClick={onClearAssets} className="px-3 bg-red-900/30 border-red-800/50 text-red-400 hover:bg-red-900 hover:text-white">
+                        清空
+                    </Button>
+                </div>
+                <div className="text-[10px] text-gray-500 text-right">
+                    目前共有 {assets.length} 張圖片
+                </div>
+            </div>
+
+            {/* Background Image */}
+            <div className="mb-4">
+                <div className="flex justify-between items-center mb-1">
+                     <label className="text-[10px] uppercase text-gray-400">背景圖片 (Background)</label>
+                     {settings.bgImage && (
+                         <button 
+                            onClick={() => updateSetting('bgImage', null)}
+                            className="text-[9px] text-red-400 hover:text-white"
+                         >
+                            移除
+                         </button>
+                     )}
+                </div>
+                <label className="block w-full cursor-pointer bg-[#151515] border border-gray-700 hover:border-gray-500 text-gray-400 text-xs py-2 px-3 rounded truncate transition-colors mb-2">
+                    {settings.bgImage ? '更換背景圖片...' : '上傳背景圖片...'}
+                    <input type="file" accept="image/*" onChange={onUploadBg} className="hidden" />
+                </label>
+                
+                <RangeControl 
+                    label="背景暗化 (Dimmer)" 
+                    min={0} max={1} step={0.05} 
+                    value={settings.bgDimmer} 
+                    onChange={e => updateSetting('bgDimmer', parseFloat(e.target.value))} 
+                />
+                <RangeControl 
+                    label="背景模糊 (Blur)" 
+                    min={0} max={20} step={1} 
+                    value={settings.bgBlur} 
+                    onChange={e => updateSetting('bgBlur', parseFloat(e.target.value))} 
+                />
+            </div>
+
+            {/* Effects */}
+            <div className="grid grid-cols-2 gap-2 mb-4">
+                <CheckboxControl label="漫畫網點 (Halftone)" checked={settings.halftone} onChange={e => updateSetting('halftone', e.target.checked)} />
+                <CheckboxControl label="電影黑邊 (CineBars)" checked={settings.cineBars} onChange={e => updateSetting('cineBars', e.target.checked)} />
+            </div>
+
+            {/* Audio */}
+            <div className="border-t border-gray-700 pt-3">
+                <div className="flex justify-between items-center mb-1">
+                     <label className="text-[10px] uppercase text-gray-400">背景音樂 (Audio)</label>
+                     {settings.audioUrl && (
+                         <button 
+                            onClick={() => updateSetting('audioUrl', null)}
+                            className="text-[9px] text-red-400 hover:text-white"
+                         >
+                            移除
+                         </button>
+                     )}
+                </div>
+                <label className="block w-full cursor-pointer bg-[#151515] border border-gray-700 hover:border-gray-500 text-gray-400 text-xs py-2 px-3 rounded truncate transition-colors mb-2">
+                    {settings.audioUrl ? '更換音樂 (MP3)...' : '上傳音樂 (MP3)...'}
+                    <input type="file" accept="audio/*" onChange={onUploadAudio} className="hidden" />
+                </label>
+                <RangeControl 
+                    label="音量 (Volume)" 
+                    min={0} max={1} step={0.1} 
+                    value={settings.volume} 
+                    onChange={e => updateSetting('volume', parseFloat(e.target.value))} 
+                />
+            </div>
+        </ControlGroup>
+
         <div className="mt-auto pt-2 space-y-2">
             <div className="flex items-center justify-between gap-2 mb-1">
                 <button 
