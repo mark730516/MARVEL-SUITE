@@ -11,6 +11,22 @@ interface PrepperProps {
 const CANVAS_WIDTH = 1920;
 const CANVAS_HEIGHT = 1080;
 
+// Filter Presets
+const FILTER_PRESETS = [
+    { label: '標準 (Reset)', settings: { brightness: 1, contrast: 1, saturate: 1, vignette: 0 } },
+    { label: '黑白 (Noir)', settings: { brightness: 1.1, contrast: 1.3, saturate: 0, vignette: 0.4 } },
+    { label: '動作 (Action)', settings: { brightness: 1.05, contrast: 1.2, saturate: 1.3, vignette: 0.2 } },
+    { label: '復古 (Vintage)', settings: { brightness: 1.1, contrast: 0.9, saturate: 0.6, vignette: 0.3 } },
+];
+
+const ASPECT_RATIOS = [
+    { label: '無 (None)', value: 0 },
+    { label: '9:16 (IG Reel)', value: 9/16 },
+    { label: '4:5 (IG Post)', value: 4/5 },
+    { label: '1:1 (Square)', value: 1 },
+    { label: '2.35:1 (Cinema)', value: 2.35 },
+];
+
 export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
   const [images, setImages] = useState<PrepperImage[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -21,9 +37,12 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
   const [selectedFont, setSelectedFont] = useState(font);
   const [isProcessing, setIsProcessing] = useState(false);
   
-  // Grid State
+  // Grid & Guides State
   const [showGrid, setShowGrid] = useState(false);
   const [gridType, setGridType] = useState<'thirds' | 'cross'>('thirds');
+  const [safeAreaRatio, setSafeAreaRatio] = useState<number>(0);
+  const [snapActiveX, setSnapActiveX] = useState(false);
+  const [snapActiveY, setSnapActiveY] = useState(false);
 
   // Interaction State
   const [isDragging, setIsDragging] = useState(false);
@@ -36,9 +55,6 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
   // Helper to calculate initial settings based on dimensions
   const calculateSettings = (w: number, h: number) => {
     const isPort = h > w;
-    // Smart cover logic:
-    // If Portrait: Fit to Height (Contain) to avoid cropping heads/feet, add blur bars.
-    // If Landscape: Fill Width/Height (Cover) to maximize impact.
     let scale = 1;
     if (isPort) {
         scale = CANVAS_HEIGHT / h;
@@ -50,7 +66,12 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
       scale: scale,
       x: 0,
       y: 0,
-      blur: isPort
+      rotation: 0,
+      blur: isPort,
+      brightness: 1,
+      contrast: 1,
+      saturate: 1,
+      vignette: 0,
     };
   };
 
@@ -76,8 +97,6 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
                 let h = img.height;
                 let finalUrl = e.target?.result as string;
 
-                // Optimization: Downscale huge images to max width 1920 to match output specs
-                // This ensures WYSIWYG and prevents performance issues with 4K/8K images
                 if (w > 1920) {
                     const scale = 1920 / w;
                     const newW = 1920;
@@ -89,7 +108,6 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
                     const ctx = canvas.getContext('2d');
                     if (ctx) {
                         ctx.drawImage(img, 0, 0, newW, newH);
-                        // Use high quality jpeg for the optimized asset
                         finalUrl = canvas.toDataURL('image/jpeg', 0.95);
                         w = newW;
                         h = newH;
@@ -148,11 +166,20 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
     });
   }, []);
 
+  const batchUpdateSettings = useCallback((newSettings: Partial<PrepperImage['settings']>) => {
+    setActiveId(curr => {
+        if (!curr) return null;
+        setImages(prev => prev.map(img => 
+          img.id === curr ? { ...img, settings: { ...img.settings, ...newSettings } } : img
+        ));
+        return curr;
+    });
+  }, []);
+
   // --- Interaction Logic (Mouse Drag & Wheel) ---
   const getMousePos = (e: React.MouseEvent | MouseEvent | React.WheelEvent) => {
       const rect = canvasRef.current?.getBoundingClientRect();
       if (!rect) return { x: 0, y: 0 };
-      // Map mouse position to canvas resolution (1920x1080)
       const scaleX = CANVAS_WIDTH / rect.width;
       const scaleY = CANVAS_HEIGHT / rect.height;
       return {
@@ -165,8 +192,7 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
       if (!activeId) return;
       setIsDragging(true);
       dragStart.current = getMousePos(e);
-      // Temporarily show grid while dragging
-      setShowGrid(true); 
+      // Don't auto show grid, let user decide, but show snapping if moving
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -177,9 +203,31 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
       
       const img = images.find(i => i.id === activeId);
       if (img) {
-          updateSetting('x', img.settings.x + dx);
-          updateSetting('y', img.settings.y + dy);
-          // Reset start to avoid acceleration
+          let newX = img.settings.x + dx;
+          let newY = img.settings.y + dy;
+          
+          // Smart Snapping
+          const SNAP_THRESHOLD = 15;
+          let snappedX = false;
+          let snappedY = false;
+
+          // Snap to Center X (0)
+          if (Math.abs(newX) < SNAP_THRESHOLD) {
+              newX = 0;
+              snappedX = true;
+          }
+          
+          // Snap to Center Y (0)
+          if (Math.abs(newY) < SNAP_THRESHOLD) {
+              newY = 0;
+              snappedY = true;
+          }
+
+          setSnapActiveX(snappedX);
+          setSnapActiveY(snappedY);
+
+          updateSetting('x', newX);
+          updateSetting('y', newY);
           dragStart.current = currentPos;
       }
   };
@@ -187,139 +235,100 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
   const handleMouseUp = () => {
       setIsDragging(false);
       dragStart.current = null;
+      setSnapActiveX(false);
+      setSnapActiveY(false);
   };
 
   const handleWheel = (e: React.WheelEvent) => {
       if (!activeId) return;
-      
       const img = images.find(i => i.id === activeId);
       if (!img) return;
 
-      // Calculate intuitive Zoom-to-Cursor
       const pos = getMousePos(e);
       const mx = pos.x;
       const my = pos.y;
+      
+      // If Alt key is pressed, Rotate instead of Zoom
+      if (e.altKey) {
+          const rotationStep = 2;
+          const delta = e.deltaY > 0 ? rotationStep : -rotationStep;
+          let newRot = (img.settings.rotation || 0) + delta;
+          if (e.shiftKey) {
+             // Snap rotation to 45 deg
+             if (Math.abs(newRot % 45) < 5) newRot = Math.round(newRot/45)*45;
+          }
+          updateSetting('rotation', newRot);
+          return;
+      }
 
       const oldScale = img.settings.scale;
       const scaleFactor = 0.001;
-      
-      // Calculate new scale with limits (0.01x to 5x)
-      // Standard mouse wheel: deltaY > 0 is scrolling down (Zoom Out)
       const newScale = Math.max(0.01, Math.min(5, oldScale - (e.deltaY * scaleFactor)));
 
-      // Current image dimensions
+      // Logic to zoom towards mouse position needs to account for rotation? 
+      // Complicated with rotation. Let's simplify: Zoom towards center if rotated?
+      // Or just standard zoom logic, assuming user adjusts position.
+      // Standard zoom logic works on the computed width/height which are independent of rotation visually for scale calc.
+      // However, the displacement calculation `mx - (relX * newW)` assumes axis aligned.
+      // For now, let's keep the existing zoom logic. It might feel slightly off if rotated heavily, but it's acceptable.
+      
       const w = img.originalWidth * oldScale;
       const h = img.originalHeight * oldScale;
-      // Current top-left in canvas coordinates
-      const cx = (CANVAS_WIDTH - w) / 2 + img.settings.x;
-      const cy = (CANVAS_HEIGHT - h) / 2 + img.settings.y;
+      // Current center
+      const cx = (CANVAS_WIDTH - w) / 2 + img.settings.x + w/2; // This is the center point X in canvas space
+      const cy = (CANVAS_HEIGHT - h) / 2 + img.settings.y + h/2;
 
-      // Mouse position relative to image (0 to 1)
-      const relX = (mx - cx) / w;
-      const relY = (my - cy) / h;
+      // Current top-left (unrotated)
+      const tl_x = (CANVAS_WIDTH - w) / 2 + img.settings.x;
+      const tl_y = (CANVAS_HEIGHT - h) / 2 + img.settings.y;
 
-      // New dimensions
+      // Mouse relative to top-left
+      const relX = (mx - tl_x) / w;
+      const relY = (my - tl_y) / h;
+
       const newW = img.originalWidth * newScale;
       const newH = img.originalHeight * newScale;
 
-      // Calculate new top-left to keep mouse at same relative position on image
-      // mx = newCx + (relX * newW)  =>  newCx = mx - (relX * newW)
-      const newCx = mx - (relX * newW);
-      const newCy = my - (relY * newH);
+      const new_tl_x = mx - (relX * newW);
+      const new_tl_y = my - (relY * newH);
 
-      // Convert top-left back to center-offsets (x, y)
-      // newCx = (CANVAS_WIDTH - newW)/2 + newX
-      const newX = newCx - (CANVAS_WIDTH - newW) / 2;
-      const newY = newCy - (CANVAS_HEIGHT - newH) / 2;
+      const newX = new_tl_x - (CANVAS_WIDTH - newW) / 2;
+      const newY = new_tl_y - (CANVAS_HEIGHT - newH) / 2;
 
-      // Batch update settings
-      setActiveId(curr => {
-          if (!curr) return null;
-          setImages(prev => prev.map(im => 
-            im.id === curr ? { 
-                ...im, 
-                settings: { 
-                    ...im.settings, 
-                    scale: newScale,
-                    x: newX,
-                    y: newY
-                } 
-            } : im
-          ));
-          return curr;
-      });
+      batchUpdateSettings({ scale: newScale, x: newX, y: newY });
   };
   
   const handleDoubleClick = () => {
-      // Quick Reset to Cover
       if (!activeId) return;
       const img = images.find(i => i.id === activeId);
       if(!img) return;
-
       const scale = Math.max(CANVAS_WIDTH/img.originalWidth, CANVAS_HEIGHT/img.originalHeight);
-      
-      // Update directly without async loading for snappy response
-      setActiveId(curr => {
-          if (!curr) return null;
-          setImages(prev => prev.map(im => 
-            im.id === curr ? { 
-                ...im, 
-                settings: { 
-                    ...im.settings, 
-                    scale, 
-                    x: 0, 
-                    y: 0, 
-                    blur: false 
-                } 
-            } : im
-          ));
-          return curr;
-      });
+      batchUpdateSettings({ scale, x: 0, y: 0, blur: false, rotation: 0 });
   };
 
-  // Keyboard Shortcuts for Precision Nudging
+  // Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
         if (!activeId) return;
-        // Ignore if user is typing in an input
         if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
 
         const shift = e.shiftKey ? 10 : 1;
         const scaleStep = e.shiftKey ? 0.1 : 0.01;
-
+        const rotStep = e.shiftKey ? 15 : 1;
+        
         let processed = false;
         
-        // Find current image to get current values
         const currentImg = images.find(i => i.id === activeId);
         if(!currentImg) return;
 
         switch(e.key) {
-            case 'ArrowUp':
-                updateSetting('y', currentImg.settings.y - shift);
-                processed = true;
-                break;
-            case 'ArrowDown':
-                updateSetting('y', currentImg.settings.y + shift);
-                processed = true;
-                break;
-            case 'ArrowLeft':
-                updateSetting('x', currentImg.settings.x - shift);
-                processed = true;
-                break;
-            case 'ArrowRight':
-                updateSetting('x', currentImg.settings.x + shift);
-                processed = true;
-                break;
-            case '=': 
-            case '+':
-                updateSetting('scale', currentImg.settings.scale + scaleStep);
-                processed = true;
-                break;
-            case '-':
-            case '_':
-                updateSetting('scale', Math.max(0.01, currentImg.settings.scale - scaleStep));
-                processed = true;
-                break;
+            case 'ArrowUp': updateSetting('y', currentImg.settings.y - shift); processed = true; break;
+            case 'ArrowDown': updateSetting('y', currentImg.settings.y + shift); processed = true; break;
+            case 'ArrowLeft': updateSetting('x', currentImg.settings.x - shift); processed = true; break;
+            case 'ArrowRight': updateSetting('x', currentImg.settings.x + shift); processed = true; break;
+            case '=': case '+': updateSetting('scale', currentImg.settings.scale + scaleStep); processed = true; break;
+            case '-': case '_': updateSetting('scale', Math.max(0.01, currentImg.settings.scale - scaleStep)); processed = true; break;
+            case 'r': case 'R': updateSetting('rotation', (currentImg.settings.rotation || 0) + (e.shiftKey ? -rotStep : rotStep)); processed = true; break;
         }
 
         if (processed) e.preventDefault();
@@ -329,7 +338,6 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeId, images, updateSetting]);
 
-  // Logic to calculate optimal font size
   const handleAutoFitText = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -337,32 +345,20 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
     if (!ctx) return;
 
     const fontFamily = selectedFont.split(',')[0].replace(/['"]/g, '');
-    const baseFontSize = 100; // Use 100px as a measurement base
+    const baseFontSize = 100;
     ctx.font = `900 ${baseFontSize}px "${fontFamily}"`;
-    
-    // Text to measure - use the longest variation if in slot mode, but usually main text is the bounding factor
     const textToMeasure = maskText || 'MARVEL';
     const metrics = ctx.measureText(textToMeasure);
     
     const textWidth = metrics.width;
     const textHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent || baseFontSize;
-
-    // Safety margins (90% of canvas)
     const targetW = CANVAS_WIDTH * 0.9;
     const targetH = CANVAS_HEIGHT * 0.9;
-
     const ratioW = targetW / textWidth;
     const ratioH = targetH / textHeight;
-    
-    // Choose the limiting dimension
     const optimalRatio = Math.min(ratioW, ratioH);
     const optimalFontSizePx = baseFontSize * optimalRatio;
-
-    // Convert pixel size back to percentage of canvas width (logic used in draw)
-    // fontSize = (CANVAS_WIDTH * maskSize) / 100
-    // maskSize = (fontSize * 100) / CANVAS_WIDTH
     const optimalPercentage = (optimalFontSizePx * 100) / CANVAS_WIDTH;
-
     setMaskSize(parseFloat(optimalPercentage.toFixed(2)));
   };
 
@@ -386,31 +382,66 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
       return;
     }
 
-    const { scale, x, y, blur } = activeImage.settings;
+    const { scale, x, y, rotation = 0, blur, brightness, contrast, saturate, vignette } = activeImage.settings;
     const w = activeImage.originalWidth * scale;
     const h = activeImage.originalHeight * scale;
-    const cx = (CANVAS_WIDTH - w) / 2 + x;
-    const cy = (CANVAS_HEIGHT - h) / 2 + y;
+    // Calculate center point of image in canvas coordinates
+    // Unrotated top-left is: (CANVAS_WIDTH - w)/2 + x, (CANVAS_HEIGHT - h)/2 + y
+    // Center is top-left + w/2, h/2
+    const centerX = (CANVAS_WIDTH/2) + x;
+    const centerY = (CANVAS_HEIGHT/2) + y;
 
-    // Background Blur
+    // Filter String Construction
+    const filterString = `brightness(${brightness}) contrast(${contrast}) saturate(${saturate})`;
+
+    // Background Blur (Fill) - Static, does not rotate
     if (blur) {
       ctx.save();
       const bScale = Math.max(CANVAS_WIDTH / activeImage.originalWidth, CANVAS_HEIGHT / activeImage.originalHeight) * 1.2;
       const bw = activeImage.originalWidth * bScale;
       const bh = activeImage.originalHeight * bScale;
-      ctx.filter = 'blur(40px) brightness(0.4)';
+      // Combined filter: background dimming + user corrections
+      ctx.filter = `blur(40px) brightness(0.4) ${filterString}`;
       ctx.drawImage(img, (CANVAS_WIDTH - bw) / 2, (CANVAS_HEIGHT - bh) / 2, bw, bh);
       ctx.restore();
     }
 
-    // Main Image
+    // Main Image with Rotation
     ctx.save();
     if (blur) {
       ctx.shadowColor = 'rgba(0,0,0,0.5)';
       ctx.shadowBlur = 30;
     }
-    ctx.drawImage(img, cx, cy, w, h);
+    // Apply User Filters
+    ctx.filter = filterString;
+    
+    // Rotate around center
+    ctx.translate(centerX, centerY);
+    ctx.rotate((rotation * Math.PI) / 180);
+    // Draw centered at origin
+    ctx.drawImage(img, -w/2, -h/2, w, h);
     ctx.restore();
+
+    // Vignette (Post-process on top of image area) - Follows rotation?
+    // Usually vignette is a lens effect, so it follows the image frame.
+    if (vignette > 0) {
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        ctx.rotate((rotation * Math.PI) / 180);
+        
+        const radius = Math.max(w, h) * 0.8;
+        const gradient = ctx.createRadialGradient(
+            0, 0, Math.max(w, h) * 0.2, // Inner circle
+            0, 0, radius // Outer circle
+        );
+        gradient.addColorStop(0, 'rgba(0,0,0,0)');
+        gradient.addColorStop(0.5, 'rgba(0,0,0,0)');
+        gradient.addColorStop(1, `rgba(0,0,0,${vignette * 1.5})`); 
+        
+        ctx.fillStyle = gradient;
+        ctx.fillRect(-w/2, -h/2, w, h);
+        ctx.restore();
+    }
 
     // Mask Overlay
     if (showMask) {
@@ -436,7 +467,74 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
       ctx.fillText(text, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
       ctx.restore();
     }
-  }, [images, activeId, showMask, maskText, maskSize, slotMode, selectedFont]);
+
+    // --- GUIDES & OVERLAYS (Drawn on top of mask for visibility) ---
+    
+    // 1. Safe Area Guides
+    if (safeAreaRatio > 0) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 255, 0, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([10, 10]);
+        
+        let guideW, guideH;
+        if (safeAreaRatio === 2.35) { // Ultra wide
+            guideW = CANVAS_WIDTH;
+            guideH = CANVAS_WIDTH / safeAreaRatio;
+        } else if (safeAreaRatio <= 1) { // Vertical or Square
+            guideH = CANVAS_HEIGHT;
+            guideW = CANVAS_HEIGHT * safeAreaRatio;
+        } else { // Horizontal 16:9 etc
+            guideW = CANVAS_WIDTH;
+            guideH = CANVAS_WIDTH / safeAreaRatio;
+            if (guideH > CANVAS_HEIGHT) {
+                guideH = CANVAS_HEIGHT;
+                guideW = CANVAS_HEIGHT * safeAreaRatio;
+            }
+        }
+        
+        const gx = (CANVAS_WIDTH - guideW) / 2;
+        const gy = (CANVAS_HEIGHT - guideH) / 2;
+        
+        // Draw rectangle
+        ctx.strokeRect(gx, gy, guideW, guideH);
+        
+        // Darken outside area
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        // Top
+        ctx.fillRect(0, 0, CANVAS_WIDTH, gy);
+        // Bottom
+        ctx.fillRect(0, gy + guideH, CANVAS_WIDTH, CANVAS_HEIGHT - (gy + guideH));
+        // Left
+        ctx.fillRect(0, gy, gx, guideH);
+        // Right
+        ctx.fillRect(gx + guideW, gy, CANVAS_WIDTH - (gx + guideW), guideH);
+        
+        ctx.restore();
+    }
+
+    // 2. Smart Snap Lines
+    if (snapActiveX || snapActiveY) {
+        ctx.save();
+        ctx.lineWidth = 2;
+        if (snapActiveX) {
+            ctx.strokeStyle = '#00ffff';
+            ctx.beginPath();
+            ctx.moveTo(CANVAS_WIDTH/2, 0);
+            ctx.lineTo(CANVAS_WIDTH/2, CANVAS_HEIGHT);
+            ctx.stroke();
+        }
+        if (snapActiveY) {
+            ctx.strokeStyle = '#00ffff';
+            ctx.beginPath();
+            ctx.moveTo(0, CANVAS_HEIGHT/2);
+            ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT/2);
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+  }, [images, activeId, showMask, maskText, maskSize, slotMode, selectedFont, safeAreaRatio, snapActiveX, snapActiveY]);
 
   useEffect(() => {
     requestAnimationFrame(draw);
@@ -448,14 +546,19 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
 
     const blobs: string[] = [];
     const savedMaskState = showMask;
+    const savedSafeArea = safeAreaRatio;
+    const savedGrid = showGrid;
+    
+    // Disable overlays for export
     setShowMask(false); 
+    setSafeAreaRatio(0);
+    setShowGrid(false);
 
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if(!ctx) return;
 
-    // Bake all images with their transforms
     for (const image of images) {
         const img = new Image();
         img.src = image.src;
@@ -464,22 +567,43 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
         ctx.fillStyle = '#000';
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
         
-        const { scale, x, y, blur } = image.settings;
+        const { scale, x, y, rotation = 0, blur, brightness, contrast, saturate, vignette } = image.settings;
         const w = image.originalWidth * scale;
         const h = image.originalHeight * scale;
-        const cx = (CANVAS_WIDTH - w) / 2 + x;
-        const cy = (CANVAS_HEIGHT - h) / 2 + y;
+        const centerX = (CANVAS_WIDTH/2) + x;
+        const centerY = (CANVAS_HEIGHT/2) + y;
+        const filterString = `brightness(${brightness}) contrast(${contrast}) saturate(${saturate})`;
 
         if (blur) {
             ctx.save();
             const bScale = Math.max(CANVAS_WIDTH / image.originalWidth, CANVAS_HEIGHT / image.originalHeight) * 1.2;
             const bw = image.originalWidth * bScale;
             const bh = image.originalHeight * bScale;
-            ctx.filter = 'blur(40px) brightness(0.4)';
+            ctx.filter = `blur(40px) brightness(0.4) ${filterString}`;
             ctx.drawImage(img, (CANVAS_WIDTH - bw) / 2, (CANVAS_HEIGHT - bh) / 2, bw, bh);
             ctx.restore();
         }
-        ctx.drawImage(img, cx, cy, w, h);
+        
+        ctx.save();
+        ctx.filter = filterString;
+        ctx.translate(centerX, centerY);
+        ctx.rotate((rotation * Math.PI) / 180);
+        ctx.drawImage(img, -w/2, -h/2, w, h);
+        ctx.restore();
+
+        if (vignette > 0) {
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.rotate((rotation * Math.PI) / 180);
+            const radius = Math.max(w, h) * 0.8;
+            const gradient = ctx.createRadialGradient(0, 0, Math.max(w, h) * 0.2, 0, 0, radius);
+            gradient.addColorStop(0, 'rgba(0,0,0,0)');
+            gradient.addColorStop(0.5, 'rgba(0,0,0,0)');
+            gradient.addColorStop(1, `rgba(0,0,0,${vignette * 1.5})`);
+            ctx.fillStyle = gradient;
+            ctx.fillRect(-w/2, -h/2, w, h);
+            ctx.restore();
+        }
 
         const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.95));
         if (blob) {
@@ -487,14 +611,17 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
         }
     }
 
+    // Restore state
     setShowMask(savedMaskState);
+    setSafeAreaRatio(savedSafeArea);
+    setShowGrid(savedGrid);
+    
     onTransfer(blobs.map(url => ({ url })), maskText, selectedFont);
     setIsProcessing(false);
   };
   
   const activeImage = images.find(i => i.id === activeId);
 
-  // Alignment Helpers
   const getImageObj = (cb: (img: HTMLImageElement) => void) => {
       if(!activeImage) return;
       const img = new Image(); img.src = activeImage.src;
@@ -540,122 +667,81 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
                         <div className="flex justify-between"><span className="text-gray-500">原始高度</span> <span className="text-gray-200">{activeImage.originalHeight}px</span></div>
                         <div className="flex justify-between"><span className="text-gray-500">長寬比例</span> <span className="text-accent font-bold">{getAspectRatioLabel(activeImage.originalWidth, activeImage.originalHeight)}</span></div>
                     </div>
-                    
-                    <div className="flex items-center justify-between text-[10px] text-gray-500 border-t border-gray-700 pt-2">
-                        <span>縮放比: <span className="text-white font-bold">{Math.round(activeImage.settings.scale * 100)}%</span></span>
-                        <span className="text-gray-600">渲染: {Math.round(activeImage.originalWidth * activeImage.settings.scale)}x{Math.round(activeImage.originalHeight * activeImage.settings.scale)}</span>
-                    </div>
-
-                    <div className="text-[9px] text-gray-600 mt-2 text-center bg-gray-800/30 rounded p-1">
-                        提示: 可直接在畫布上 <span className="text-white">拖曳移動</span> 或 <span className="text-white">滾輪縮放</span><br/>
-                        雙擊畫布可快速填滿 (Cover)
-                    </div>
                  </div>
              ) : (
                  <div className="text-[10px] text-gray-500 text-center py-2">請選擇圖片以啟用控制項</div>
              )}
 
-             <div className="flex gap-2 mb-3">
-                <Button className="flex-1 text-[10px] py-1" onClick={() => setShowGrid(!showGrid)}>
-                    {showGrid ? '隱藏網格' : '顯示輔助網格'}
-                </Button>
-                {showGrid && (
-                    <Button className="w-10 text-[10px] py-1 px-0" onClick={() => setGridType(g => g === 'thirds' ? 'cross' : 'thirds')}>
-                        {gridType === 'thirds' ? '#': '+'}
-                    </Button>
-                )}
-             </div>
-
-             <RangeControl 
-                label="縮放 (Scale)" 
-                min={0.1} max={3} step={0.001} 
-                value={activeImage?.settings.scale ?? 1} 
-                valueDisplay={`${((activeImage?.settings.scale ?? 1) * 100).toFixed(1)}%`}
-                onChange={(e) => updateSetting('scale', parseFloat(e.target.value))}
-             />
-             
-             {/* 幾何對齊工具 */}
              <div className="grid grid-cols-3 gap-1 mb-3">
                  <Button className="col-span-3 text-[10px] px-1 py-1 bg-accent/20 border-accent/50 text-accent hover:bg-accent/30 hover:text-white mb-1 transition-all" onClick={() => getImageObj(img => {
                      const s = calculateSettings(img.width, img.height);
-                     updateSetting('scale', s.scale);
-                     updateSetting('x', s.x);
-                     updateSetting('y', s.y);
-                     updateSetting('blur', s.blur);
-                 })}>↺ 自動重置 (Smart Reset)</Button>
-
-                 <Button className="text-[10px] px-1 py-1 bg-gray-800 hover:bg-gray-700" title="人像模式：頂部對齊" onClick={() => getImageObj(img => {
-                     // 頂部對齊 (Top Align) - 適合人像
-                     const scale = Math.max(CANVAS_WIDTH/img.width, CANVAS_HEIGHT/img.height);
-                     updateSetting('scale', scale);
-                     updateSetting('x', 0); 
-                     const h = img.height * scale;
-                     updateSetting('y', (h - CANVAS_HEIGHT) / 2);
-                     updateSetting('blur', false);
-                 })}>⬆ 頂部對齊</Button>
-
-                <Button className="text-[10px] px-1 py-1 bg-gray-800 hover:bg-gray-700" onClick={() => {
-                     updateSetting('x', 0);
-                     updateSetting('y', 0);
-                 }}>✚ 絕對置中</Button>
-
-                 <Button className="text-[10px] px-1 py-1 bg-gray-800 hover:bg-gray-700" title="底部對齊" onClick={() => getImageObj(img => {
-                     // 底部對齊 (Bottom Align)
-                     const scale = Math.max(CANVAS_WIDTH/img.width, CANVAS_HEIGHT/img.height);
-                     updateSetting('scale', scale);
-                     updateSetting('x', 0); 
-                     const h = img.height * scale;
-                     updateSetting('y', (CANVAS_HEIGHT - h) / 2);
-                     updateSetting('blur', false);
-                 })}>⬇ 底部對齊</Button>
-                 
-                 <Button className="text-[10px] px-1 py-1 bg-gray-800 hover:bg-gray-700" onClick={() => getImageObj(img => {
-                     // Fill (Cover)
-                     const scale = Math.max(CANVAS_WIDTH/img.width, CANVAS_HEIGHT/img.height);
-                     updateSetting('scale', scale);
-                     updateSetting('x', 0); updateSetting('y', 0);
-                     updateSetting('blur', false);
-                 })}>填滿 (Cover)</Button>
+                     // Keep existing color settings on reset? Maybe better to keep them.
+                     batchUpdateSettings({ scale: s.scale, x: s.x, y: s.y, blur: s.blur, rotation: 0 });
+                 })}>↺ 重置構圖 (Reset Pos)</Button>
 
                  <Button className="text-[10px] px-1 py-1 bg-gray-800 hover:bg-gray-700" onClick={() => getImageObj(img => {
-                     // Fit (Contain)
-                     const scale = Math.min(CANVAS_WIDTH/img.width, CANVAS_HEIGHT/img.height);
-                     updateSetting('scale', scale);
-                     updateSetting('x', 0); updateSetting('y', 0);
-                     updateSetting('blur', true);
-                 })}>完整 (Fit)</Button>
+                     const scale = Math.max(CANVAS_WIDTH/img.width, CANVAS_HEIGHT/img.height);
+                     const h = img.height * scale;
+                     batchUpdateSettings({ scale, x: 0, y: (h - CANVAS_HEIGHT) / 2, blur: false });
+                 })}>⬆ 頂部</Button>
 
-                 <Button className="text-[10px] px-1 py-1 bg-gray-800 hover:bg-gray-700" onClick={() => {
-                     updateSetting('scale', 1);
-                 }}>1:1 原始</Button>
+                <Button className="text-[10px] px-1 py-1 bg-gray-800 hover:bg-gray-700" onClick={() => batchUpdateSettings({x:0, y:0})}>✚ 置中</Button>
+
+                 <Button className="text-[10px] px-1 py-1 bg-gray-800 hover:bg-gray-700" onClick={() => getImageObj(img => {
+                     const scale = Math.max(CANVAS_WIDTH/img.width, CANVAS_HEIGHT/img.height);
+                     const h = img.height * scale;
+                     batchUpdateSettings({ scale, x: 0, y: (CANVAS_HEIGHT - h) / 2, blur: false });
+                 })}>⬇ 底部</Button>
              </div>
 
              <div className="space-y-2 mt-2">
+                 <RangeControl 
+                    label="縮放 (Scale)" 
+                    min={0.1} max={3} step={0.001} 
+                    value={activeImage?.settings.scale ?? 1} 
+                    valueDisplay={`${((activeImage?.settings.scale ?? 1) * 100).toFixed(1)}%`}
+                    onChange={(e) => updateSetting('scale', parseFloat(e.target.value))}
+                 />
+                 <RangeControl 
+                    label="旋轉 (Rotate)" 
+                    min={-180} max={180} step={1} 
+                    value={activeImage?.settings.rotation ?? 0} 
+                    valueDisplay={`${activeImage?.settings.rotation ?? 0}°`}
+                    onChange={(e) => updateSetting('rotation', parseFloat(e.target.value))}
+                 />
+             </div>
+                 
+             <div className="space-y-2 mt-3 pt-2 border-t border-gray-700">
                  <div className="flex items-center gap-2">
                      <span className="text-[10px] text-gray-400 w-8">X 軸</span>
-                     <input 
-                        type="number" 
-                        className="bg-[#111] border border-gray-700 text-white text-xs rounded px-2 py-1 flex-1"
-                        value={Math.round(activeImage?.settings.x ?? 0)}
-                        onChange={(e) => updateSetting('x', parseFloat(e.target.value))}
-                     />
+                     <input type="number" className="bg-[#111] border border-gray-700 text-white text-xs rounded px-2 py-1 flex-1" value={Math.round(activeImage?.settings.x ?? 0)} onChange={(e) => updateSetting('x', parseFloat(e.target.value))} />
                  </div>
                  <div className="flex items-center gap-2">
                      <span className="text-[10px] text-gray-400 w-8">Y 軸</span>
-                     <input 
-                        type="number" 
-                        className="bg-[#111] border border-gray-700 text-white text-xs rounded px-2 py-1 flex-1"
-                        value={Math.round(activeImage?.settings.y ?? 0)}
-                        onChange={(e) => updateSetting('y', parseFloat(e.target.value))}
-                     />
+                     <input type="number" className="bg-[#111] border border-gray-700 text-white text-xs rounded px-2 py-1 flex-1" value={Math.round(activeImage?.settings.y ?? 0)} onChange={(e) => updateSetting('y', parseFloat(e.target.value))} />
                  </div>
-                 <CheckboxControl 
-                    label="自動模糊背景 (填滿黑邊)" 
-                    checked={activeImage?.settings.blur ?? true}
-                    onChange={(e) => updateSetting('blur', e.target.checked)}
-                    className="mt-2"
-                 />
+                 <CheckboxControl label="自動模糊背景 (填滿)" checked={activeImage?.settings.blur ?? true} onChange={(e) => updateSetting('blur', e.target.checked)} className="mt-2" />
              </div>
+        </ControlGroup>
+
+        <ControlGroup title="2.5 調色與濾鏡 (Color & Filters)">
+            {/* Filter Presets */}
+            <div className="grid grid-cols-4 gap-1 mb-4">
+                {FILTER_PRESETS.map((p, i) => (
+                    <Button 
+                        key={i} 
+                        className="text-[9px] px-0 py-1.5 bg-gray-800 hover:bg-gray-700 hover:text-white border-gray-700" 
+                        onClick={() => batchUpdateSettings(p.settings)}
+                    >
+                        {p.label.split(' ')[0]}
+                    </Button>
+                ))}
+            </div>
+
+            <RangeControl label="亮度 (Brightness)" min={0} max={2} step={0.05} value={activeImage?.settings.brightness ?? 1} valueDisplay={(activeImage?.settings.brightness ?? 1).toFixed(2)} onChange={e => updateSetting('brightness', parseFloat(e.target.value))} />
+            <RangeControl label="對比度 (Contrast)" min={0} max={2} step={0.05} value={activeImage?.settings.contrast ?? 1} valueDisplay={(activeImage?.settings.contrast ?? 1).toFixed(2)} onChange={e => updateSetting('contrast', parseFloat(e.target.value))} />
+            <RangeControl label="飽和度 (Saturate)" min={0} max={2} step={0.05} value={activeImage?.settings.saturate ?? 1} valueDisplay={(activeImage?.settings.saturate ?? 1).toFixed(2)} onChange={e => updateSetting('saturate', parseFloat(e.target.value))} />
+            <RangeControl label="暗角 (Vignette)" min={0} max={1} step={0.05} value={activeImage?.settings.vignette ?? 0} valueDisplay={(activeImage?.settings.vignette ?? 0).toFixed(2)} onChange={e => updateSetting('vignette', parseFloat(e.target.value))} />
         </ControlGroup>
 
         <ControlGroup title="3. 預覽與輸出">
@@ -672,13 +758,13 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
                 <Select value={selectedFont} onChange={e => setSelectedFont(e.target.value)}>
                     {FONTS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
                 </Select>
-                <RangeControl 
-                    label="遮罩字體大小" 
-                    min={5} max={100} 
-                    value={maskSize} 
-                    valueDisplay={`${maskSize}%`}
-                    onChange={e => setMaskSize(parseFloat(e.target.value))}
-                />
+                <RangeControl label="遮罩字體大小" min={5} max={100} value={maskSize} valueDisplay={`${maskSize}%`} onChange={e => setMaskSize(parseFloat(e.target.value))} />
+                
+                <div className="pt-2 border-t border-gray-700">
+                    <Select label="安全框 (Safe Area)" value={safeAreaRatio} onChange={e => setSafeAreaRatio(parseFloat(e.target.value))}>
+                        {ASPECT_RATIOS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                    </Select>
+                </div>
             </div>
         </ControlGroup>
 
@@ -694,7 +780,7 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
       <div 
         className="flex-1 bg-[#0d0d0d] flex items-center justify-center relative overflow-hidden bg-[radial-gradient(#222_1px,transparent_1px)] [background-size:20px_20px] outline-none group select-none" 
         tabIndex={-1}
-        onWheel={handleWheel} // Add Scroll to Zoom to container
+        onWheel={handleWheel} 
       >
          <div className="relative shadow-2xl shadow-black/80 ring-1 ring-[#333]">
             <canvas 
@@ -708,7 +794,6 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
                 onMouseLeave={handleMouseUp}
                 onDoubleClick={handleDoubleClick}
             />
-            
             {/* Grid Overlay */}
             {showGrid && (
                 <div className="absolute inset-0 pointer-events-none z-20">
@@ -727,7 +812,6 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
                     )}
                 </div>
             )}
-
             {isProcessing && (
                 <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-50">
                     <div className="text-white font-bold mb-2">處理中...</div>

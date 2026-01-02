@@ -1,3 +1,4 @@
+
 export interface PrepperImage {
   id: string;
   name: string;
@@ -8,7 +9,13 @@ export interface PrepperImage {
     scale: number;
     x: number;
     y: number;
+    rotation: number; // degrees, default 0
     blur: boolean;
+    // Color Correction
+    brightness: number; // 0-2, default 1
+    contrast: number;   // 0-2, default 1
+    saturate: number;   // 0-2, default 1
+    vignette: number;   // 0-1, default 0
   };
 }
 
