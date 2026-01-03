@@ -19,6 +19,21 @@ export interface PrepperImage {
   };
 }
 
+export interface LibraryAsset {
+  id: string;
+  name: string;
+  src: string;
+  timestamp: number;
+}
+
+export interface SavedProject {
+  id: string;
+  name: string;
+  images: PrepperImage[];
+  settings: IntroSettings;
+  timestamp: number;
+}
+
 export interface IntroAsset {
   id: string;
   url: string;

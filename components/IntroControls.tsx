@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { IntroSettings, IntroAsset, CharMapping } from '../types';
 import { ControlGroup, RangeControl, CheckboxControl, TextInput, Select, Button } from './Controls';
@@ -22,13 +23,16 @@ interface IntroControlsProps {
   isExporting: boolean;
   isWireframe: boolean;
   toggleWireframe: () => void;
+  manualTime: number | null;
+  onScrub: (time: number) => void;
+  totalDuration: number;
 }
 
 export const IntroControls: React.FC<IntroControlsProps> = ({
   settings, updateSetting, onApplyPreset, assets, mappings, updateMapping,
   onUploadAssets, onClearAssets, onRemoveAsset, onUploadBg, onUploadAudio,
   onPlay, onSnapshot, onExportGif, isPlaying, isExporting,
-  isWireframe, toggleWireframe
+  isWireframe, toggleWireframe, manualTime, onScrub, totalDuration
 }) => {
 
   const handleRandomizeImages = () => {
@@ -39,13 +43,8 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
   const handleResetMappings = () => {
     mappings.forEach((_, i) => updateMapping(i, { 
         imgId: assets.length > 0 ? assets[i % assets.length].id : null,
-        scale: 100, x: 0, y: 0, fitHeight: false, duration: 0 // Duration unused in UI mapping override now
+        scale: 100, x: 0, y: 0, fitHeight: false, duration: 0 
     }));
-  };
-
-  const handleResetTilt = () => {
-      updateSetting('tiltAngleX', 0);
-      updateSetting('tiltAngleY', 0);
   };
 
   // --- Timeline Calculations ---
@@ -72,6 +71,8 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
   const pctRipple = (timelineStats.ripple / timelineStats.total) * 100;
   const pctHold = (timelineStats.hold / timelineStats.total) * 100;
 
+  const currentT = manualTime ?? 0;
+
   return (
     <div className={`w-[450px] bg-panel border-r border-border flex flex-col p-4 overflow-y-auto shrink-0 z-10 h-full ${isExporting ? 'opacity-50 pointer-events-none' : ''}`}>
         
@@ -96,9 +97,48 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
                     {FONTS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
                 </Select>
             </div>
+
+            {/* Sub-Title Controls */}
+            <div className="mt-4 pt-3 border-t border-gray-700">
+                <CheckboxControl 
+                    label="啟用副標題 (Sub-Title)" 
+                    checked={settings.subEnabled} 
+                    onChange={e => updateSetting('subEnabled', e.target.checked)} 
+                    className="mb-2"
+                />
+                
+                {settings.subEnabled && (
+                    <div className="space-y-2 pl-3 border-l-2 border-gray-600 ml-1 transition-all bg-[#1a1a1a] p-2 rounded-r">
+                        <TextInput 
+                            label="副標題文字" 
+                            value={settings.subText} 
+                            onChange={e => updateSetting('subText', e.target.value.toUpperCase())} 
+                        />
+                        <RangeControl 
+                            label="大小 (Size)" 
+                            min={1} max={10} step={0.1} 
+                            value={settings.subSize} 
+                            onChange={e => updateSetting('subSize', parseFloat(e.target.value))} 
+                        />
+                        <RangeControl 
+                            label="字元間距 (Spacing)" 
+                            min={0} max={2} step={0.05} 
+                            value={settings.subSpacing} 
+                            onChange={e => updateSetting('subSpacing', parseFloat(e.target.value))} 
+                        />
+                        <RangeControl 
+                            label="垂直位置 (Margin Top)" 
+                            min={0} max={20} step={0.1} 
+                            value={settings.subMargin} 
+                            onChange={e => updateSetting('subMargin', parseFloat(e.target.value))} 
+                        />
+                    </div>
+                )}
+            </div>
+
             <div className="flex gap-2 mt-3 bg-[#111] p-2 rounded">
                 <div className="flex-1">
-                     <label className="text-[10px] text-gray-400 block mb-1">背景色</label>
+                     <label className="text-[10px] text-gray-400 block mb-1">背景色 (Logo Box)</label>
                      <input type="color" className="w-full h-8 cursor-pointer bg-transparent" value={settings.bgColor} onChange={e => updateSetting('bgColor', e.target.value)} />
                 </div>
                 <div className="flex-1">
@@ -109,161 +149,99 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
         </ControlGroup>
 
         <ControlGroup title="2. 外觀樣式 (Appearance)">
-            <RangeControl label="背景不透明度" min={0} max={1} step={0.01} value={settings.bgOpacity} onChange={e => updateSetting('bgOpacity', parseFloat(e.target.value))} />
+            <RangeControl label="背景不透明度 (Logo Box)" min={0} max={1} step={0.01} value={settings.bgOpacity} onChange={e => updateSetting('bgOpacity', parseFloat(e.target.value))} />
             <RangeControl label="文字大小" min={1} max={50} value={settings.textSize} onChange={e => updateSetting('textSize', parseFloat(e.target.value))} />
             <RangeControl label="字元間距" min={-0.2} max={0.5} step={0.01} value={settings.spacing} onChange={e => updateSetting('spacing', parseFloat(e.target.value))} />
             <RangeControl label="3D 厚度" min={0} max={30} value={settings.depth} onChange={e => updateSetting('depth', parseFloat(e.target.value))} />
             <RangeControl label="發光強度" min={0} max={50} value={settings.glow} onChange={e => updateSetting('glow', parseFloat(e.target.value))} />
             
             <div className="flex items-center justify-between mb-2 mt-2 bg-[#111] p-2 rounded">
-                <label className="text-[10px] text-gray-400 uppercase tracking-wider">Text Shadow Color</label>
+                <label className="text-[10px] text-gray-400 uppercase tracking-wider">Shadow Color</label>
                 <div className="flex items-center gap-2">
                     <span className="text-[10px] text-gray-500 font-mono">{settings.shadowColor}</span>
                     <input type="color" className="h-6 w-8 cursor-pointer bg-transparent border-none p-0" value={settings.shadowColor} onChange={e => updateSetting('shadowColor', e.target.value)} />
                 </div>
             </div>
-
-            <div className="border-t border-gray-700 my-3"></div>
-            
-            <CheckboxControl label="啟用副標題" checked={settings.subEnabled} onChange={e => updateSetting('subEnabled', e.target.checked)} />
-            {settings.subEnabled && (
-                <div className="space-y-2 mt-2 pl-2 border-l border-gray-700">
-                    <TextInput value={settings.subText} onChange={e => updateSetting('subText', e.target.value)} />
-                    <RangeControl label="Size" min={1} max={30} value={settings.subSize} onChange={e => updateSetting('subSize', parseFloat(e.target.value))} />
-                    <RangeControl label="Spacing" min={0} max={2} step={0.1} value={settings.subSpacing} onChange={e => updateSetting('subSpacing', parseFloat(e.target.value))} />
-                    <RangeControl label="頂部邊距 (Top Margin)" min={-15} max={20} step={0.5} value={settings.subMargin} onChange={e => updateSetting('subMargin', parseFloat(e.target.value))} />
-                </div>
-            )}
         </ControlGroup>
 
-        <ControlGroup title="3. 動畫流程 (Time Sequence)">
-            {/* Timeline Visualizer */}
-            <div className="bg-[#111] p-3 rounded mb-4 border border-gray-700 font-mono text-[10px] select-none">
+        <ControlGroup title="3. 逐格動畫控制 (Timeline Control)">
+            <div className="bg-[#111] p-3 rounded mb-2 border border-gray-700 font-mono text-[10px] select-none">
                 <div className="flex justify-between items-end mb-2">
-                    <span className="text-gray-400 font-bold">時間軸預覽 (Timeline)</span>
-                    <span className="text-white font-bold bg-gray-800 px-2 py-0.5 rounded border border-gray-600">
-                        Total: {(timelineStats.total / 1000).toFixed(1)}s
+                    <span className="text-gray-400 font-bold">手動預覽控制 (Scrubber)</span>
+                    <span className="text-accent font-bold bg-gray-800 px-2 py-0.5 rounded border border-gray-600">
+                        {(currentT / 1000).toFixed(2)}s / {(totalDuration / 1000).toFixed(1)}s
                     </span>
                 </div>
                 
-                <div className="h-6 w-full bg-gray-900 rounded-md flex relative overflow-hidden ring-1 ring-gray-700 mb-2">
-                    <div className="h-full bg-blue-900/80 border-r border-blue-500/30 flex items-center justify-center text-blue-200 transition-all duration-300" style={{width: `${pctSolid}%`}} title={`Phase 1: Solid (${(timelineStats.solid/1000).toFixed(1)}s)`}>
-                        {pctSolid > 15 && <span className="drop-shadow-md font-bold">Solid</span>}
-                    </div>
-                    <div className="h-full bg-orange-900/80 border-r border-orange-500/30 flex items-center justify-center text-orange-200 transition-all duration-300" style={{width: `${pctSpin}%`}} title={`Phase 2: Spin (${(timelineStats.spin/1000).toFixed(1)}s)`}>
-                         {pctSpin > 15 && <span className="drop-shadow-md font-bold">Spin</span>}
-                    </div>
-                    <div className="h-full bg-purple-900/80 border-r border-purple-500/30 flex items-center justify-center text-purple-200 transition-all duration-300" style={{width: `${pctRipple}%`}} title={`Phase 3: Ripple (${(timelineStats.ripple/1000).toFixed(1)}s)`}>
-                        {pctRipple > 15 && <span className="drop-shadow-md font-bold">Lock</span>}
-                    </div>
-                    <div className="h-full bg-green-900/80 flex items-center justify-center text-green-200 transition-all duration-300" style={{width: `${pctHold}%`}} title={`Phase 4: Hold (${(timelineStats.hold/1000).toFixed(1)}s)`}>
-                        {pctHold > 15 && <span className="drop-shadow-md font-bold">Hold</span>}
-                    </div>
+                <div className="h-6 w-full bg-gray-900 rounded-md flex relative overflow-hidden ring-1 ring-gray-700 mb-4">
+                    <div className="h-full bg-blue-900/40 border-r border-blue-500/30 flex items-center justify-center text-blue-200" style={{width: `${pctSolid}%`}}></div>
+                    <div className="h-full bg-orange-900/40 border-r border-orange-500/30 flex items-center justify-center text-orange-200" style={{width: `${pctSpin}%`}}></div>
+                    <div className="h-full bg-purple-900/40 border-r border-purple-500/30 flex items-center justify-center text-purple-200" style={{width: `${pctRipple}%`}}></div>
+                    <div className="h-full bg-green-900/40 flex items-center justify-center text-green-200" style={{width: `${pctHold}%`}}></div>
+                    
+                    {/* Playhead Indicator */}
+                    <div 
+                        className="absolute top-0 bottom-0 w-1 bg-white shadow-lg z-10 transition-transform duration-75 pointer-events-none" 
+                        style={{ left: `${(currentT / totalDuration) * 100}%` }}
+                    />
                 </div>
 
-                <div className="grid grid-cols-4 gap-1 text-[9px] text-center bg-black/20 p-1 rounded">
-                    <div className="text-blue-400">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full mx-auto mb-1 shadow-sm shadow-blue-500/50"></div>
-                        <span className="block font-bold">P1. Solid</span>
-                        <span className="opacity-70">{(timelineStats.solid/1000).toFixed(1)}s</span>
-                    </div>
-                    <div className="text-orange-400">
-                        <div className="w-2 h-2 bg-orange-500 rounded-full mx-auto mb-1 shadow-sm shadow-orange-500/50"></div>
-                        <span className="block font-bold">P2. Spin</span>
-                        <span className="opacity-70">{(timelineStats.spin/1000).toFixed(1)}s</span>
-                    </div>
-                    <div className="text-purple-400">
-                        <div className="w-2 h-2 bg-purple-500 rounded-full mx-auto mb-1 shadow-sm shadow-purple-500/50"></div>
-                        <span className="block font-bold">P3. Lock</span>
-                        <span className="opacity-70">{(timelineStats.ripple/1000).toFixed(1)}s</span>
-                    </div>
-                    <div className="text-green-400">
-                        <div className="w-2 h-2 bg-green-500 rounded-full mx-auto mb-1 shadow-sm shadow-green-500/50"></div>
-                        <span className="block font-bold">P4. Hold</span>
-                        <span className="opacity-70">{(timelineStats.hold/1000).toFixed(1)}s</span>
-                    </div>
+                {/* Scrubber Range Input */}
+                <input
+                    type="range"
+                    className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary mb-3"
+                    min={0}
+                    max={totalDuration}
+                    step={10}
+                    value={currentT}
+                    onChange={(e) => onScrub(parseFloat(e.target.value))}
+                />
+
+                <div className="flex gap-2">
+                    <Button className="flex-1 py-1 text-[10px]" onClick={() => onScrub(Math.max(0, currentT - 100))}>
+                        ⏮ -100ms
+                    </Button>
+                    <Button className="flex-1 py-1 text-[10px]" onClick={() => onScrub(Math.min(totalDuration, currentT + 100))}>
+                        ⏭ +100ms
+                    </Button>
+                    <Button className="px-3 py-1 text-[10px] bg-accent/20 border-accent/40 text-accent" onClick={() => onScrub(0)}>
+                        ↺ 重置
+                    </Button>
                 </div>
             </div>
 
-            <div className="space-y-4">
-                <div className="relative border-l-2 border-blue-500 pl-3 transition-colors hover:border-blue-400">
-                    <h3 className="text-xs font-bold text-blue-400 uppercase mb-2">Phase 1: 純色靜止 (Solid)</h3>
+            <div className="space-y-4 mt-6">
+                <div className="relative border-l-2 border-blue-500 pl-3">
                     <RangeControl 
-                        label="靜止持續時間 (Duration)" 
+                        label="Phase 1: 純色持續 (Solid)" 
                         min={0} max={5000} step={100} 
                         value={settings.solidBaseDuration} 
                         onChange={e => updateSetting('solidBaseDuration', parseFloat(e.target.value))} 
                     />
-                    <div className="pt-2 mt-2 border-t border-gray-700/50">
-                        <RangeControl 
-                            label="[獨立] 縮放動畫長度 (Zoom)" 
-                            min={500} max={15000} step={100} 
-                            value={settings.zoomDuration} 
-                            onChange={e => updateSetting('zoomDuration', parseFloat(e.target.value))} 
-                        />
-                        <RangeControl label="起始縮放 (Start Scale)" min={0} max={300} value={settings.startScale} onChange={e => updateSetting('startScale', parseFloat(e.target.value))} />
-                    </div>
                 </div>
-
-                <div className="relative border-l-2 border-orange-500 pl-3 transition-colors hover:border-orange-400">
-                    <h3 className="text-xs font-bold text-orange-400 uppercase mb-2">Phase 2: 運轉 (Spinning)</h3>
+                <div className="relative border-l-2 border-orange-500 pl-3">
                     <RangeControl 
-                        label="滾動運轉時間 (Duration)" 
+                        label="Phase 2: 運轉持續 (Spinning)" 
                         min={500} max={10000} step={100} 
                         value={settings.duration} 
                         onChange={e => updateSetting('duration', parseFloat(e.target.value))} 
                     />
-                    <div className="grid grid-cols-2 gap-2 mt-2 bg-orange-500/10 p-2 rounded">
-                        <CheckboxControl 
-                            label="獨立圖片隨機 (Independent)" 
-                            checked={settings.independentRoll} 
-                            onChange={e => updateSetting('independentRoll', e.target.checked)} 
-                        />
-                         <div className="text-[9px] text-gray-400 col-span-2 mt-1">
-                            {settings.independentRoll 
-                                ? "目前模式：每個字顯示不同圖片 (混亂感)" 
-                                : "目前模式：單張大圖遮罩 (滿版質感)"}
-                        </div>
-                    </div>
-                    <RangeControl label="圖片切換速度 (Flash Speed)" min={30} max={200} step={1} value={settings.speed} onChange={e => updateSetting('speed', parseFloat(e.target.value))} />
-                    <RangeControl label="位置抖動 (Jitter)" min={0} max={20} value={settings.jitter} onChange={e => updateSetting('jitter', parseFloat(e.target.value))} />
                 </div>
-
-                <div className="relative border-l-2 border-purple-500 pl-3 transition-colors hover:border-purple-400">
-                    <h3 className="text-xs font-bold text-purple-400 uppercase mb-2">Phase 3: 鎖定 (Locking)</h3>
-                    <div className="bg-purple-500/10 p-2 rounded border border-purple-500/30">
-                        <RangeControl 
-                            label="逐字停止間隔 (Stop Interval)" 
-                            min={0} max={2000} step={10} 
-                            value={settings.stagger} 
-                            onChange={e => updateSetting('stagger', parseFloat(e.target.value))} 
-                        />
-                        <div className="text-[9px] text-purple-300 mt-1 text-center">
-                            數值越大 = 減速感越明顯 (逐字停止越慢)
-                        </div>
-                    </div>
-                </div>
-
-                <div className="relative border-l-2 border-green-500 pl-3 transition-colors hover:border-green-400">
-                    <h3 className="text-xs font-bold text-green-400 uppercase mb-2">Phase 4: 結尾 (End)</h3>
+                <div className="relative border-l-2 border-purple-500 pl-3">
                     <RangeControl 
-                        label="結束停留時間 (Hold Duration)" 
+                        label="Phase 3: 逐字停止 (Stagger)" 
+                        min={0} max={2000} step={10} 
+                        value={settings.stagger} 
+                        onChange={e => updateSetting('stagger', parseFloat(e.target.value))} 
+                    />
+                </div>
+                <div className="relative border-l-2 border-green-500 pl-3">
+                    <RangeControl 
+                        label="Phase 4: 結尾停留 (Hold)" 
                         min={0} max={5000} step={100} 
                         value={settings.endHoldDuration} 
                         onChange={e => updateSetting('endHoldDuration', parseFloat(e.target.value))} 
                     />
-                    
-                    <div className="mt-2 pt-2 border-t border-gray-700">
-                        <div className="flex gap-2 items-center mb-2">
-                            <CheckboxControl label="啟用 3D 視角" checked={settings.tilt} onChange={e => updateSetting('tilt', e.target.checked)} />
-                            {settings.tilt && (
-                                <button onClick={handleResetTilt} className="text-[10px] bg-gray-700 hover:bg-gray-600 px-2 py-0.5 rounded text-white ml-2">重置</button>
-                            )}
-                        </div>
-                        {settings.tilt && (
-                            <CheckboxControl label="自動懸浮 (Auto Float)" checked={settings.tiltAuto} onChange={e => updateSetting('tiltAuto', e.target.checked)} className="pl-4 text-gray-400" />
-                        )}
-                    </div>
                 </div>
             </div>
 
@@ -276,7 +254,7 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
                             <button onClick={handleResetMappings} title="重置" className="text-[10px] px-2 py-0.5 bg-gray-700 hover:bg-red-900 rounded text-red-300">↺</button>
                         </div>
                     </div>
-                    <div className="max-h-[350px] overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                    <div className="max-h-[250px] overflow-y-auto space-y-2 pr-1 custom-scrollbar">
                         {mappings.map((map, i) => {
                             const asset = assets.find(a => a.id === map.imgId) || assets[0];
                             const fontName = settings.font.split(',')[0].replace(/['"]/g, '');
@@ -301,14 +279,6 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
                                             <option value="">預設</option>
                                             {assets.map((a, idx) => <option key={a.id} value={a.id}>圖 {idx+1}</option>)}
                                         </select>
-                                        <div className="grid grid-cols-3 gap-1">
-                                            {['scale','x','y'].map(k => (
-                                                <div key={k} className="flex items-center bg-[#222] rounded px-1 border border-gray-700">
-                                                    <span className="text-[9px] text-gray-500 mr-1 uppercase">{k[0]}</span>
-                                                    <input type="number" className="w-full bg-transparent text-[10px] text-white py-1 text-center focus:outline-none" value={(map as any)[k]} onChange={(e) => updateMapping(i, { [k]: parseInt(e.target.value) })} />
-                                                </div>
-                                            ))}
-                                        </div>
                                     </div>
                                 </div>
                             );
@@ -319,173 +289,107 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
         </ControlGroup>
 
         <ControlGroup title="4. 場景與素材 (Scene & Assets)">
-            {/* Assets Management */}
-            <div className="mb-4 p-2 bg-black/20 rounded border border-gray-700">
+            <div className="mb-4">
                 <label className="text-[10px] uppercase text-gray-400 mb-2 block">圖片素材庫 (Assets)</label>
                 <div className="flex gap-2 mb-2">
                     <label className="flex-1 cursor-pointer bg-[#333] hover:bg-gray-600 text-white text-xs py-2 px-3 rounded flex items-center justify-center border border-gray-600 transition-colors">
                         <span>+ 新增圖片</span>
                         <input type="file" multiple accept="image/*" onChange={onUploadAssets} className="hidden" />
                     </label>
-                    <Button onClick={onClearAssets} className="px-3 bg-red-900/30 border-red-800/50 text-red-400 hover:bg-red-900 hover:text-white">
-                        清空
-                    </Button>
+                    <Button onClick={onClearAssets} className="px-3 bg-red-900/30 border-red-800/50 text-red-400 hover:bg-red-900">清空</Button>
                 </div>
-                
-                {/* Visual Grid of Assets for Quick Reference and Deletion */}
-                <div className="grid grid-cols-5 gap-2 mt-2 max-h-[150px] overflow-y-auto p-1 custom-scrollbar">
+                <div className="grid grid-cols-5 gap-2 mt-2 max-h-[100px] overflow-y-auto p-1 custom-scrollbar">
                   {assets.map((asset, idx) => (
                     <div key={asset.id} className="relative w-full aspect-square rounded border border-gray-700 bg-cover bg-center group" style={{backgroundImage: `url(${asset.url})`}}>
-                       <div className="absolute top-0 left-0 bg-black/80 text-[9px] text-white px-1.5 py-0.5 rounded-br font-mono z-10">{idx+1}</div>
-                       <button 
-                            onClick={() => onRemoveAsset(asset.id)} 
-                            title="移除此圖片"
-                            className="absolute inset-0 bg-red-900/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 font-bold"
-                        >
-                            ✕
-                        </button>
+                       <button onClick={() => onRemoveAsset(asset.id)} className="absolute inset-0 bg-red-900/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 font-bold">✕</button>
                     </div>
                   ))}
-                  {assets.length === 0 && (
-                      <div className="col-span-5 text-[10px] text-gray-500 text-center py-4 italic border border-dashed border-gray-800 rounded">
-                          尚未載入圖片
-                      </div>
-                  )}
-                </div>
-
-                <div className="text-[10px] text-gray-500 text-right mt-1">
-                    目前共有 {assets.length} 張圖片
                 </div>
             </div>
 
-            {/* Background Image */}
-            <div className="mb-4">
-                <div className="flex justify-between items-center mb-1">
-                     <label className="text-[10px] uppercase text-gray-400">背景 (Background)</label>
-                     {settings.bgImage && (
-                         <button 
-                            onClick={() => updateSetting('bgImage', null)}
-                            className="text-[9px] text-red-400 hover:text-white"
-                         >
-                            移除
-                         </button>
+            <div className="mb-4 pt-3 border-t border-gray-700">
+                <label className="text-[10px] uppercase text-gray-400 mb-2 block">場景底色 (Scene Base)</label>
+                <div className="flex gap-1 mb-2">
+                    <button 
+                        onClick={() => updateSetting('sceneBgType', 'solid')}
+                        className={`flex-1 py-1.5 text-[10px] rounded border transition-colors ${settings.sceneBgType === 'solid' ? 'bg-primary border-primary text-white' : 'bg-[#151515] border-gray-700 text-gray-400 hover:text-white'}`}
+                    >
+                        純色 (Solid)
+                    </button>
+                    <button 
+                        onClick={() => updateSetting('sceneBgType', 'gradient')}
+                        className={`flex-1 py-1.5 text-[10px] rounded border transition-colors ${settings.sceneBgType === 'gradient' ? 'bg-primary border-primary text-white' : 'bg-[#151515] border-gray-700 text-gray-400 hover:text-white'}`}
+                    >
+                        漸層 (Gradient)
+                    </button>
+                </div>
+                
+                <div className="flex gap-2 items-center bg-[#151515] p-2 rounded border border-gray-700">
+                     <input type="color" className="h-6 flex-1 cursor-pointer bg-transparent border-none p-0" value={settings.sceneBgColor} onChange={e => updateSetting('sceneBgColor', e.target.value)} title="Primary Color" />
+                     {settings.sceneBgType === 'gradient' && (
+                         <>
+                            <span className="text-gray-500 text-[10px]">to</span>
+                            <input type="color" className="h-6 flex-1 cursor-pointer bg-transparent border-none p-0" value={settings.sceneBgColor2} onChange={e => updateSetting('sceneBgColor2', e.target.value)} title="Secondary Color" />
+                         </>
                      )}
                 </div>
 
-                {/* Solid / Gradient Controls */}
-                <div className="bg-[#1a1a1a] p-2 rounded mb-2 border border-gray-800">
-                    <div className="flex gap-2 mb-2">
-                        <button 
-                            className={`flex-1 text-[10px] py-1 rounded transition-colors ${settings.sceneBgType === 'solid' ? 'bg-primary text-white font-bold' : 'bg-[#333] text-gray-400 hover:bg-[#444]'}`}
-                            onClick={() => updateSetting('sceneBgType', 'solid')}
-                        >
-                            純色 (Solid)
-                        </button>
-                        <button 
-                            className={`flex-1 text-[10px] py-1 rounded transition-colors ${settings.sceneBgType === 'gradient' ? 'bg-primary text-white font-bold' : 'bg-[#333] text-gray-400 hover:bg-[#444]'}`}
-                            onClick={() => updateSetting('sceneBgType', 'gradient')}
-                        >
-                            漸層 (Gradient)
-                        </button>
+                {settings.sceneBgType === 'gradient' && (
+                    <div className="mt-2">
+                        <Select value={settings.sceneBgGradientDir} onChange={e => updateSetting('sceneBgGradientDir', e.target.value)}>
+                            <option value="to bottom">⬇ 垂直 (Top to Bottom)</option>
+                            <option value="to right">➡ 水平 (Left to Right)</option>
+                            <option value="135deg">↘ 對角 (Diagonal)</option>
+                            <option value="radial">◎ 放射狀 (Radial)</option>
+                        </Select>
                     </div>
+                )}
+            </div>
 
-                    <div className="space-y-2 bg-black/20 p-2 rounded">
-                        <div className="flex items-center justify-between">
-                            <span className="text-[10px] text-gray-400">主色 (Color 1)</span>
-                            <div className="flex items-center gap-2">
-                                <span className="text-[9px] font-mono text-gray-500">{settings.sceneBgColor}</span>
-                                <input type="color" className="h-5 w-8 p-0 border-0 bg-transparent cursor-pointer" value={settings.sceneBgColor} onChange={e => updateSetting('sceneBgColor', e.target.value)} />
-                            </div>
-                        </div>
-
-                        {settings.sceneBgType === 'gradient' && (
-                            <>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-[10px] text-gray-400">副色 (Color 2)</span>
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-[9px] font-mono text-gray-500">{settings.sceneBgColor2}</span>
-                                        <input type="color" className="h-5 w-8 p-0 border-0 bg-transparent cursor-pointer" value={settings.sceneBgColor2} onChange={e => updateSetting('sceneBgColor2', e.target.value)} />
-                                    </div>
-                                </div>
-                                
-                                <div className="flex items-center justify-between">
-                                    <span className="text-[10px] text-gray-400">方向 (Direction)</span>
-                                    <select 
-                                        className="bg-[#111] text-[10px] text-white border border-gray-700 rounded px-1 py-0.5 outline-none focus:border-primary w-[100px]"
-                                        value={settings.sceneBgGradientDir}
-                                        onChange={e => updateSetting('sceneBgGradientDir', e.target.value)}
-                                    >
-                                        <option value="to bottom">⬇ 垂直 (Top-Down)</option>
-                                        <option value="to right">➡ 水平 (Left-Right)</option>
-                                        <option value="135deg">↘ 斜角 (Diagonal)</option>
-                                        <option value="radial">◎ 放射 (Radial)</option>
-                                    </select>
-                                </div>
-                            </>
-                        )}
-                    </div>
+            <div className="mb-4 pt-3 border-t border-gray-700">
+                <label className="text-[10px] uppercase text-gray-400 mb-2 block">疊加背景圖 (Overlay Image)</label>
+                <div className="flex gap-2 mb-2">
+                    <label className="flex-1 cursor-pointer bg-[#151515] hover:bg-[#222] text-gray-400 hover:text-white text-xs py-2 px-3 rounded flex items-center justify-center border border-gray-700 transition-colors">
+                        <span>{settings.bgImage ? '更換圖片...' : '上傳圖片...'}</span>
+                        <input type="file" accept="image/*" onChange={onUploadBg} className="hidden" />
+                    </label>
+                    {settings.bgImage && (
+                        <Button onClick={() => updateSetting('bgImage', null)} className="px-3 bg-red-900/30 border-red-800/50 text-red-400 hover:bg-red-900" title="移除背景圖">✕</Button>
+                    )}
+                </div>
+                
+                <div className="mb-2">
+                   <RangeControl label="背景模糊 (Blur)" min={0} max={20} step={1} value={settings.bgBlur} onChange={e => updateSetting('bgBlur', parseFloat(e.target.value))} />
                 </div>
 
-                <label className="cursor-pointer bg-[#151515] hover:bg-[#222] text-gray-400 hover:text-white text-xs py-2 px-3 rounded flex items-center justify-center border border-gray-700 transition-colors mb-2">
-                    <span className="truncate">{settings.bgImage ? '更換背景圖片...' : '上傳背景圖片...'}</span>
-                    <input type="file" accept="image/*" onChange={onUploadBg} className="hidden" />
-                </label>
-
-                <RangeControl label="背景暗化 (Dimmer)" min={0} max={1} step={0.05} value={settings.bgDimmer} onChange={e => updateSetting('bgDimmer', parseFloat(e.target.value))} />
-                <RangeControl label="背景模糊 (Blur)" min={0} max={20} step={1} value={settings.bgBlur} onChange={e => updateSetting('bgBlur', parseFloat(e.target.value))} />
-                
                 <div className="flex gap-4 mt-2">
-                    <CheckboxControl label="半色調網點 (Halftone)" checked={settings.halftone} onChange={e => updateSetting('halftone', e.target.checked)} />
-                    <CheckboxControl label="電影黑邊 (Letterbox)" checked={settings.cineBars} onChange={e => updateSetting('cineBars', e.target.checked)} />
+                    <CheckboxControl label="半色調 (Halftone)" checked={settings.halftone} onChange={e => updateSetting('halftone', e.target.checked)} />
+                    <CheckboxControl label="電影黑邊" checked={settings.cineBars} onChange={e => updateSetting('cineBars', e.target.checked)} />
                 </div>
             </div>
 
             <div className="pt-3 border-t border-gray-700">
-                <div className="flex justify-between items-center mb-1">
-                     <label className="text-[10px] uppercase text-gray-400">音效 (Audio MP3)</label>
-                     {settings.audioUrl && (
-                         <button 
-                            onClick={() => updateSetting('audioUrl', null)}
-                            className="text-[9px] text-red-400 hover:text-white"
-                         >
-                            移除
-                         </button>
-                     )}
-                </div>
+                <label className="text-[10px] uppercase text-gray-400">音效 (Audio)</label>
                 <label className="cursor-pointer bg-[#151515] hover:bg-[#222] text-gray-400 hover:text-white text-xs py-2 px-3 rounded flex items-center justify-center border border-gray-700 transition-colors mb-2">
-                    <span className="truncate">{settings.audioUrl ? '更換音效...' : '上傳 MP3...'}</span>
+                    <span>{settings.audioUrl ? '更換音效...' : '上傳 MP3...'}</span>
                     <input type="file" accept="audio/*" onChange={onUploadAudio} className="hidden" />
                 </label>
-                <RangeControl label="音量 (Volume)" min={0} max={1} step={0.1} value={settings.volume} onChange={e => updateSetting('volume', parseFloat(e.target.value))} />
             </div>
         </ControlGroup>
 
         <div className="mt-auto pt-4 space-y-2 pb-6">
             <div className="flex gap-2">
-                <Button 
-                    variant="primary" 
-                    className="flex-1 py-3 text-base flex items-center justify-center gap-2" 
-                    onClick={onPlay}
-                    disabled={isExporting}
-                >
+                <Button variant="primary" className="flex-1 py-3 text-base flex items-center justify-center gap-2" onClick={onPlay} disabled={isExporting}>
                     {isPlaying ? '⏹ 停止播放' : '▶ 開始播放'}
                 </Button>
-                <Button 
-                    className="w-12 flex items-center justify-center text-lg" 
-                    onClick={toggleWireframe} 
-                    title={isWireframe ? "關閉線框模式" : "線框模式 (除錯)"}
-                >
+                <Button className="w-12 flex items-center justify-center text-lg" onClick={toggleWireframe}>
                     {isWireframe ? '▣' : '□'}
                 </Button>
             </div>
             
             <div className="flex gap-2">
-                <Button className="flex-1 py-2 text-xs" onClick={onSnapshot} disabled={isExporting || isPlaying}>
-                    📷 截圖 (PNG)
-                </Button>
-                <Button className="flex-1 py-2 text-xs" onClick={onExportGif} disabled={isExporting || isPlaying}>
-                    {isExporting ? '匯出中...' : '🎬 匯出 GIF'}
-                </Button>
+                <Button className="flex-1 py-2 text-xs" onClick={onSnapshot} disabled={isExporting || isPlaying}>📷 截圖</Button>
+                <Button className="flex-1 py-2 text-xs" onClick={onExportGif} disabled={isExporting || isPlaying}>{isExporting ? '匯出中...' : '🎬 匯出 GIF'}</Button>
             </div>
         </div>
     </div>

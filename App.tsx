@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect, useCallback } from 'react';
 import { Prepper } from './components/Prepper';
 import { Intro } from './components/Intro';
 
@@ -20,12 +21,59 @@ const App: React.FC = () => {
     setActiveTab('intro');
   };
 
+  // --- Fullscreen API Logic ---
+  const toggleCinemaMode = useCallback(async (enable: boolean) => {
+      const doc = document as any;
+      const docEl = document.documentElement as any;
+
+      try {
+          if (enable) {
+              setCinemaMode(true);
+              const requestFullScreen = docEl.requestFullscreen || docEl.webkitRequestFullscreen || docEl.mozRequestFullScreen || docEl.msRequestFullscreen;
+              
+              if (requestFullScreen && !doc.fullscreenElement && !doc.webkitFullscreenElement && !doc.mozFullScreenElement && !doc.msFullscreenElement) {
+                  await requestFullScreen.call(docEl);
+              }
+          } else {
+              setCinemaMode(false);
+              const exitFullScreen = doc.exitFullscreen || doc.webkitExitFullscreen || doc.mozCancelFullScreen || doc.msExitFullscreen;
+              
+              if (exitFullScreen && (doc.fullscreenElement || doc.webkitFullscreenElement || doc.mozFullScreenElement || doc.msFullscreenElement)) {
+                  await exitFullScreen.call(doc);
+              }
+          }
+      } catch (err) {
+          console.error("Error toggling fullscreen:", err);
+          // Still toggle state even if fullscreen fails (e.g. permissions or unsupported)
+          setCinemaMode(enable);
+      }
+  }, []);
+
+  // Sync state when user presses ESC or exits fullscreen natively
+  useEffect(() => {
+      const handleFullscreenChange = () => {
+          const doc = document as any;
+          const isFullscreen = doc.fullscreenElement || doc.webkitFullscreenElement || doc.mozFullScreenElement || doc.msFullscreenElement;
+          
+          if (!isFullscreen) {
+              setCinemaMode(false);
+          }
+      };
+
+      const events = ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'];
+      events.forEach(e => document.addEventListener(e, handleFullscreenChange));
+      
+      return () => {
+          events.forEach(e => document.removeEventListener(e, handleFullscreenChange));
+      };
+  }, []);
+
   return (
     <div className={`flex flex-col h-full w-full ${cinemaMode ? 'bg-black' : 'bg-dark'}`}>
       {/* Cinema Overlay Button */}
       {cinemaMode && (
         <button 
-            onClick={() => setCinemaMode(false)}
+            onClick={() => toggleCinemaMode(false)}
             className="fixed top-5 right-5 z-[9999] bg-white/10 backdrop-blur border border-white/30 text-white px-4 py-2 rounded-full hover:bg-primary hover:border-primary transition-all shadow-lg font-bold"
         >
             ✕ 退出劇院模式
@@ -42,7 +90,7 @@ const App: React.FC = () => {
           
           <div className="flex gap-4 h-full items-center">
             <button 
-                onClick={() => setCinemaMode(true)}
+                onClick={() => toggleCinemaMode(true)}
                 className="bg-[#222] border border-[#444] text-gray-300 px-3 py-1.5 rounded text-xs hover:border-white hover:text-white transition-colors"
             >
                 🔲 劇院模式
@@ -79,6 +127,7 @@ const App: React.FC = () => {
                 importedAssets={transferAssets}
                 initialText={transferText}
                 initialFont={transferFont}
+                cinemaMode={cinemaMode}
              />
          </div>
       </main>

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useMemo } from 'react';
 import { IntroSettings, IntroAsset, CharMapping } from '../types';
 import { DEFAULT_INTRO_SETTINGS } from '../constants';
 import { IntroControls } from './IntroControls';
@@ -10,9 +11,10 @@ interface IntroProps {
   importedAssets: { url: string }[],
   initialText: string;
   initialFont: string;
+  cinemaMode?: boolean;
 }
 
-export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initialFont }) => {
+export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initialFont, cinemaMode = false }) => {
   const [settings, setSettings] = useState<IntroSettings>(DEFAULT_INTRO_SETTINGS);
   const [assets, setAssets] = useState<IntroAsset[]>([]);
   const [mappings, setMappings] = useState<CharMapping[]>([]);
@@ -21,20 +23,23 @@ export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initi
   const [manualTime, setManualTime] = useState<number | null>(null);
   const [isWireframe, setIsWireframe] = useState(false);
 
-  // Load imported assets on mount/change and reset mappings to clean state to match Prepper
+  // Calculate total duration for the scrubber
+  const totalDuration = useMemo(() => {
+      const charCount = Math.max(settings.text.length, 1);
+      const rippleDuration = (charCount - 1) * settings.stagger;
+      return settings.solidBaseDuration + settings.duration + rippleDuration + settings.endHoldDuration;
+  }, [settings.solidBaseDuration, settings.duration, settings.stagger, settings.text]);
+
+  // Load imported assets on mount/change
   useEffect(() => {
     if (importedAssets.length > 0) {
       const newAssets = importedAssets.map(a => ({ id: Math.random().toString(36).substr(2, 9), url: a.url }));
-      setAssets(newAssets); // Replace assets, don't append, to ensure strict sync with Prepper
-      
-      // Force refresh mappings to use the new assets with 100% scale (defaults)
-      // This ensures the "Cover" logic in IntroStage takes over for a 1:1 match
-      setMappings([]); // Clear first to trigger re-calc in next effect or do it here? 
-      // Actually, relying on the next useEffect is safer if we just cleared assets, but let's be explicit:
+      setAssets(newAssets); 
+      setMappings([]); 
     }
   }, [importedAssets]);
 
-  // Sync settings if props change (only if they are meaningful)
+  // Sync settings if props change
   useEffect(() => {
       if(initialText && initialText !== 'MARVEL') setSettings(s => ({ ...s, text: initialText }));
       if(initialFont) setSettings(s => ({ ...s, font: initialFont }));
@@ -45,44 +50,26 @@ export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initi
     setMappings(prev => {
         const newText = settings.text;
         const newMappings: CharMapping[] = [];
-        
-        // Check if assets were just refreshed (simple heuristic: prev length mismatch or asset mismatch)
-        // For seamless transfer, we generally prioritize the Default Loop behavior if the character doesn't exist
-        
         for (let i = 0; i < newText.length; i++) {
             const char = newText[i];
             const existing = prev[i];
-            
-            // Round-robin default asset
             const defaultImgId = assets.length > 0 ? assets[i % assets.length].id : null;
             const defaultDuration = settings.duration + (i * settings.stagger);
-
-            // If we have an existing mapping for this specific character index and char, keep its custom tweaks.
-            // UNLESS we just imported new assets (which we can infer if the existing imgId is not in the new assets list).
             
             let keepExisting = false;
             if (existing && existing.char === char) {
                 if (existing.imgId && assets.find(a => a.id === existing.imgId)) {
                     keepExisting = true;
                 } else if (existing.imgId === null) {
-                    keepExisting = true; // Kept as default/random
+                    keepExisting = true;
                 }
             }
 
             if (keepExisting) {
-                newMappings.push({
-                    ...existing,
-                    duration: defaultDuration // Update duration dynamic
-                });
+                newMappings.push({ ...existing, duration: defaultDuration });
             } else {
                 newMappings.push({
-                    char,
-                    imgId: defaultImgId,
-                    scale: 100, // CRITICAL: 100 triggers 'cover' mode in IntroStage
-                    x: 0,
-                    y: 0,
-                    fitHeight: false,
-                    duration: defaultDuration
+                    char, imgId: defaultImgId, scale: 100, x: 0, y: 0, fitHeight: false, duration: defaultDuration
                 });
             }
         }
@@ -96,12 +83,8 @@ export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initi
 
   const handleApplyPreset = (presetSettings: Partial<IntroSettings>) => {
     setSettings(prev => ({
-      ...prev,
-      ...presetSettings,
-      text: prev.text,
-      font: prev.font,
-      bgImage: prev.bgImage,
-      audioUrl: prev.audioUrl,
+      ...prev, ...presetSettings,
+      text: prev.text, font: prev.font, bgImage: prev.bgImage, audioUrl: prev.audioUrl,
     }));
   };
 
@@ -112,53 +95,19 @@ export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initi
   const handleUploadAssets = (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files?.length) {
           const files = Array.from(e.target.files) as File[];
-          const newAssets = files.map(f => ({
-              id: Math.random().toString(36).substr(2, 9),
-              url: URL.createObjectURL(f)
-          }));
+          const newAssets = files.map(f => ({ id: Math.random().toString(36).substr(2, 9), url: URL.createObjectURL(f) }));
           setAssets(prev => [...prev, ...newAssets]);
-      }
-  };
-
-  const handleRemoveAsset = (id: string) => {
-      setAssets(prev => prev.filter(a => a.id !== id));
-  };
-
-  const handleUploadBg = (e: React.ChangeEvent<HTMLInputElement>) => {
-      if(e.target.files?.[0]) {
-          setSettings(prev => ({ ...prev, bgImage: URL.createObjectURL(e.target.files![0]) }));
-      }
-  };
-
-  const handleUploadAudio = (e: React.ChangeEvent<HTMLInputElement>) => {
-      if(e.target.files?.[0]) {
-          setSettings(prev => ({ ...prev, audioUrl: URL.createObjectURL(e.target.files![0]) }));
       }
   };
 
   const handleSnapshot = async () => {
     const el = document.getElementById('intro-stage');
     if (el) {
-        // html2canvas captures based on current DOM dimensions.
-        // Since element is 1920x1080 scaled down, capture might be small if we capture 'what is seen'.
-        // However, html2canvas supports 'windowWidth/windowHeight' options, but best is to rely on scale.
-        // If element is transformed, html2canvas attempts to replicate that.
-        // To get full resolution, we can pass scale: 1 / currentScale. 
-        // But simpler: just capture and let it handle 1920.
-        // Actually, if we use window.devicePixelRatio, it helps.
-        
-        // Strategy: We rely on the internal width/height being 1920x1080.
-        // If we pass scale: 1, it should output 1920x1080 if the CSS width is 1920.
         const canvas = await html2canvas(el, { 
-            scale: 1, 
-            backgroundColor: null, 
-            useCORS: true,
-            // Force dimensions to be safe
-            width: 1920,
-            height: 1080
+            scale: 1, backgroundColor: null, useCORS: true, width: 1920, height: 1080
         });
         const link = document.createElement('a');
-        link.download = 'marvel-intro-snapshot.png';
+        link.download = `marvel-snapshot-${manualTime ? Math.round(manualTime) : 'final'}.png`;
         link.href = canvas.toDataURL('image/png');
         link.click();
     }
@@ -169,52 +118,24 @@ export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initi
         alert("請先上傳圖片素材");
         return;
     }
-    
     setIsExporting(true);
     setIsPlaying(false);
-    
     try {
-        // Load worker blob dynamically
         const workerBlob = await fetch('https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js').then(r => r.blob());
         const workerUrl = URL.createObjectURL(workerBlob);
-
         // @ts-ignore
-        const gif = new GIF({
-            workers: 2,
-            quality: 10,
-            workerScript: workerUrl,
-            // Width/Height will be set by addFrame
-            width: 960, // Export at 50% for performance and file size (half of 1920)
-            height: 540
-        });
-
+        const gif = new GIF({ workers: 2, quality: 10, workerScript: workerUrl, width: 960, height: 540 });
         const fps = 10;
-        const maxDuration = Math.max(
-            settings.duration + (settings.text.length * settings.stagger),
-            ...mappings.map(m => m.duration)
-        ) + settings.endHoldDuration; // Add end buffer
-
         const step = 1000 / fps;
         const stageEl = document.getElementById('intro-stage');
-
-        for (let t = 0; t <= maxDuration; t += step) {
+        for (let t = 0; t <= totalDuration; t += step) {
             setManualTime(t);
-            // Wait for React to render and browser to paint
             await new Promise(r => setTimeout(r, 150));
-            
             if (stageEl) {
-                const canvas = await html2canvas(stageEl, {
-                    useCORS: true,
-                    scale: 0.5, // 50% scale of 1920x1080 -> 960x540
-                    backgroundColor: null,
-                    logging: false,
-                    width: 1920,
-                    height: 1080
-                });
+                const canvas = await html2canvas(stageEl, { useCORS: true, scale: 0.5, backgroundColor: null, logging: false, width: 1920, height: 1080 });
                 gif.addFrame(canvas, { delay: step });
             }
         }
-
         gif.on('finished', (blob: Blob) => {
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
@@ -224,41 +145,55 @@ export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initi
             setManualTime(null);
             URL.revokeObjectURL(workerUrl);
         });
-
         gif.render();
-
     } catch (e) {
-        console.error("Export failed", e);
-        alert("匯出失敗");
         setIsExporting(false);
         setManualTime(null);
     }
   };
 
+  const handleScrub = (time: number) => {
+      setIsPlaying(false);
+      setManualTime(time);
+  };
+
+  const handlePlayToggle = () => {
+      if (!isPlaying) {
+          setManualTime(null); // Reset manual override to start from 0 automatically
+      }
+      setIsPlaying(!isPlaying);
+  };
+
   return (
-    <div className="flex w-full h-full">
-        <IntroControls 
-            settings={settings}
-            updateSetting={handleUpdateSetting}
-            onApplyPreset={handleApplyPreset}
-            assets={assets}
-            mappings={mappings}
-            updateMapping={handleUpdateMapping}
-            onUploadAssets={handleUploadAssets}
-            onClearAssets={() => setAssets([])}
-            onRemoveAsset={handleRemoveAsset}
-            onUploadBg={handleUploadBg}
-            onUploadAudio={handleUploadAudio}
-            onPlay={() => setIsPlaying(!isPlaying)}
-            onSnapshot={handleSnapshot}
-            onExportGif={handleExportGif}
-            isPlaying={isPlaying}
-            isExporting={isExporting}
-            isWireframe={isWireframe}
-            toggleWireframe={() => setIsWireframe(!isWireframe)}
-        />
+    <div className="flex w-full h-full relative group/container">
+        {/* Sidebar Controls - Hide in Cinema Mode */}
+        {!cinemaMode && (
+            <IntroControls 
+                settings={settings}
+                updateSetting={handleUpdateSetting}
+                onApplyPreset={handleApplyPreset}
+                assets={assets}
+                mappings={mappings}
+                updateMapping={handleUpdateMapping}
+                onUploadAssets={handleUploadAssets}
+                onClearAssets={() => setAssets([])}
+                onRemoveAsset={(id) => setAssets(prev => prev.filter(a => a.id !== id))}
+                onUploadBg={(e) => e.target.files?.[0] && setSettings(s => ({...s, bgImage: URL.createObjectURL(e.target.files![0])}))}
+                onUploadAudio={(e) => e.target.files?.[0] && setSettings(s => ({...s, audioUrl: URL.createObjectURL(e.target.files![0])}))}
+                onPlay={handlePlayToggle}
+                onSnapshot={handleSnapshot}
+                onExportGif={handleExportGif}
+                isPlaying={isPlaying}
+                isExporting={isExporting}
+                isWireframe={isWireframe}
+                toggleWireframe={() => setIsWireframe(!isWireframe)}
+                manualTime={manualTime}
+                onScrub={handleScrub}
+                totalDuration={totalDuration}
+            />
+        )}
+
         <div className="flex-1 bg-black flex items-center justify-center relative overflow-hidden">
-             {/* Stage handles its own scaling now, just provide full space */}
              <IntroStage 
                     settings={settings}
                     onUpdateSettings={(vals) => setSettings(s => ({...s, ...vals}))}
@@ -269,7 +204,37 @@ export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initi
                     progress={0}
                     onFinish={() => setIsPlaying(false)}
                     isWireframe={isWireframe}
+                    cinemaMode={cinemaMode}
             />
+            
+            {/* Cinema Mode Controls Overlay */}
+            {cinemaMode && (
+                <div className="absolute inset-0 z-50 pointer-events-none flex flex-col items-center justify-center">
+                    {!isPlaying && (
+                        <button 
+                            onClick={handlePlayToggle}
+                            className="pointer-events-auto group relative flex items-center justify-center"
+                        >
+                            <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl group-hover:bg-primary/40 transition-all duration-500"></div>
+                            <div className="relative w-24 h-24 rounded-full border-2 border-primary/50 bg-black/50 backdrop-blur-sm flex items-center justify-center group-hover:scale-110 group-hover:border-primary transition-all duration-300">
+                                <span className="text-4xl text-white ml-2">▶</span>
+                            </div>
+                            <span className="absolute -bottom-10 text-white/50 text-xs font-bold tracking-[0.2em] group-hover:text-white transition-colors">START SEQUENCE</span>
+                        </button>
+                    )}
+                    
+                    {isPlaying && (
+                        <div className="absolute bottom-10 opacity-0 group-hover/container:opacity-100 transition-opacity duration-500 pointer-events-auto">
+                             <button 
+                                onClick={handlePlayToggle}
+                                className="px-6 py-2 bg-white/10 backdrop-blur border border-white/20 rounded-full text-white text-sm font-bold hover:bg-red-600 hover:border-red-600 transition-all flex items-center gap-2"
+                             >
+                                <span className="animate-pulse">●</span> 停止播放 (STOP)
+                             </button>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     </div>
   );
