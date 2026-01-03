@@ -46,7 +46,7 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
         imgId: assets.length > 0 ? assets[i % assets.length].id : null,
         scale: 100, 
         x: 0, 
-        y: -50, // 自動套用向上置中
+        y: -50, 
         fitHeight: false, 
         duration: 0 
     }));
@@ -96,74 +96,51 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
                 <RangeControl label="文字大小 (%)" min={1} max={50} value={settings.textSize} onChange={e => updateSetting('textSize', parseFloat(e.target.value))} />
                 <RangeControl label="字元間距 (EM)" min={-0.2} max={0.5} step={0.01} value={settings.spacing} onChange={e => updateSetting('spacing', parseFloat(e.target.value))} />
             </div>
-
-            <div className="mt-4 pt-4 border-t border-[#333] space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                    <ColorControl label="文字顏色" value={settings.textColor} onChange={val => updateSetting('textColor', val)} />
-                    <ColorControl label="標題背景顏色" value={settings.bgColor} onChange={val => updateSetting('bgColor', val)} />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                    <RangeControl label="標題背景透明度" min={0} max={1} step={0.01} value={settings.bgOpacity} onChange={e => updateSetting('bgOpacity', parseFloat(e.target.value))} />
-                    <ColorControl label="陰影/深度顏色" value={settings.shadowColor} onChange={val => updateSetting('shadowColor', val)} />
-                </div>
+            <div className="mt-4 grid grid-cols-2 gap-3 pt-4 border-t border-[#333]">
+                <ColorControl label="文字顏色" value={settings.textColor} onChange={val => updateSetting('textColor', val)} />
+                <ColorControl label="標題底色" value={settings.bgColor} onChange={val => updateSetting('bgColor', val)} />
+            </div>
+            <div className="mt-2">
+                <RangeControl label="遮罩透明度 (STATIC)" min={0} max={1} step={0.01} value={settings.bgOpacity} onChange={e => updateSetting('bgOpacity', parseFloat(e.target.value))} />
             </div>
         </ControlGroup>
 
-        <ControlGroup title="2. 副標題控制 (SUB-TITLE)">
+        <ControlGroup title="2. 副標題 (SUB-TITLE)">
             <CheckboxControl label="啟用副標題" checked={settings.subEnabled} onChange={e => updateSetting('subEnabled', e.target.checked)} />
             {settings.subEnabled && (
                 <div className="space-y-4 mt-4 pl-3 border-l-2 border-primary/40 bg-black/20 p-4 rounded-r-lg">
                     <TextInput label="副標題文字" value={settings.subText} onChange={e => updateSetting('subText', e.target.value.toUpperCase())} />
                     <div className="grid grid-cols-2 gap-4">
                          <RangeControl label="字體大小" min={1} max={20} step={0.1} value={settings.subSize} onChange={e => updateSetting('subSize', parseFloat(e.target.value))} />
-                         <RangeControl label="字元間距" min={-0.2} max={1} step={0.01} value={settings.subSpacing} onChange={e => updateSetting('subSpacing', parseFloat(e.target.value))} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 items-end">
-                        <RangeControl label="垂直邊距 (Margin Top)" min={-10} max={30} step={0.1} value={settings.subMargin} onChange={e => updateSetting('subMargin', parseFloat(e.target.value))} />
-                        <ColorControl label="副標題顏色" value={settings.subColor} onChange={val => updateSetting('subColor', val)} />
+                         <ColorControl label="副標題顏色" value={settings.subColor} onChange={val => updateSetting('subColor', val)} />
                     </div>
                 </div>
             )}
         </ControlGroup>
 
-        <ControlGroup title="3. 場景與背景 (SCENE)">
-            <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                    <Select label="背景類型" value={settings.sceneBgType} onChange={e => updateSetting('sceneBgType', e.target.value)}>
-                        <option value="solid">單色背景 (Solid)</option>
-                        <option value="gradient">漸層背景 (Gradient)</option>
-                    </Select>
-                    <Select label="漸層方向" value={settings.sceneBgGradientDir} onChange={e => updateSetting('sceneBgGradientDir', e.target.value)}>
-                        <option value="to bottom">由上至下 ↓</option>
-                        <option value="to right">由左至右 →</option>
-                        <option value="radial">放射狀 ☉</option>
-                    </Select>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                    <ColorControl label="主要顏色 1" value={settings.sceneBgColor} onChange={val => updateSetting('sceneBgColor', val)} />
-                    <ColorControl label="主要顏色 2" value={settings.sceneBgColor2} onChange={val => updateSetting('sceneBgColor2', val)} />
-                </div>
-                <div className="pt-2">
-                    <label className="cursor-pointer bg-[#222] hover:bg-[#333] text-gray-400 text-[10px] py-2 px-3 rounded border border-[#444] block text-center truncate mb-2">
-                        {settings.bgImage ? '✅ 背景圖已載入' : '📁 上傳背景圖片'}
-                        <input type="file" accept="image/*" onChange={onUploadBg} className="hidden" />
-                    </label>
-                    <div className="grid grid-cols-2 gap-3">
-                        <RangeControl label="背景模糊" min={0} max={40} value={settings.bgBlur} onChange={e => updateSetting('bgBlur', parseFloat(e.target.value))} />
-                        <RangeControl label="背景調暗" min={0} max={1} step={0.01} value={settings.bgDimmer} onChange={e => updateSetting('bgDimmer', parseFloat(e.target.value))} />
-                    </div>
-                </div>
+        <ControlGroup title="3. 場景設計 (SCENE)">
+            <div className="grid grid-cols-2 gap-3 mb-4">
+                <ColorControl label="主要顏色 1" value={settings.sceneBgColor} onChange={val => updateSetting('sceneBgColor', val)} />
+                <ColorControl label="主要顏色 2" value={settings.sceneBgColor2} onChange={val => updateSetting('sceneBgColor2', val)} />
+            </div>
+            <label className="cursor-pointer bg-[#222] hover:bg-[#333] text-gray-400 text-[10px] py-2 px-3 rounded border border-[#444] block text-center truncate mb-2">
+                {settings.bgImage ? '✅ 背景圖已載入' : '📁 上傳場景背景圖'}
+                <input type="file" accept="image/*" onChange={onUploadBg} className="hidden" />
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+                <RangeControl label="背景模糊" min={0} max={40} value={settings.bgBlur} onChange={e => updateSetting('bgBlur', parseFloat(e.target.value))} />
+                <RangeControl label="背景調暗" min={0} max={1} step={0.01} value={settings.bgDimmer} onChange={e => updateSetting('bgDimmer', parseFloat(e.target.value))} />
             </div>
         </ControlGroup>
 
-        <ControlGroup title="4. 3D 效果與發光 (3D EFFECTS)">
+        <ControlGroup title="4. 3D 視覺與特效 (3D & FX)">
             <div className="grid grid-cols-2 gap-4">
-                <RangeControl label="3D 深度厚度" min={0} max={40} value={settings.depth} onChange={e => updateSetting('depth', parseFloat(e.target.value))} />
-                <RangeControl label="外發光 (Glow)" min={0} max={100} value={settings.glow} onChange={e => updateSetting('glow', parseFloat(e.target.value))} />
+                <RangeControl label="3D 深度" min={0} max={40} value={settings.depth} onChange={e => updateSetting('depth', parseFloat(e.target.value))} />
+                <RangeControl label="外發光" min={0} max={100} value={settings.glow} onChange={e => updateSetting('glow', parseFloat(e.target.value))} />
             </div>
-            <div className="grid grid-cols-2 gap-4 mt-3">
-                <RangeControl label="進場縮放起點" min={50} max={200} value={settings.startScale} onChange={e => updateSetting('startScale', parseFloat(e.target.value))} />
-                <RangeControl label="邊端閃耀" min={0} max={2} step={0.1} value={settings.rimLight} onChange={e => updateSetting('rimLight', parseFloat(e.target.value))} />
+            <div className="mt-4 grid grid-cols-2 gap-4">
+                <CheckboxControl label="色散 (Aberration)" checked={settings.chromaticAberration} onChange={e => updateSetting('chromaticAberration', e.target.checked)} />
+                <CheckboxControl label="底片顆粒" checked={settings.filmGrain} onChange={e => updateSetting('filmGrain', e.target.checked)} />
             </div>
         </ControlGroup>
 
@@ -182,7 +159,7 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
                 <input type="range" className="w-full h-1.5 bg-[#222] rounded-lg appearance-none cursor-pointer accent-primary" min={0} max={totalDuration} step={10} value={currentT} onChange={(e) => onScrub(parseFloat(e.target.value))} />
             </div>
 
-            <div className="grid grid-cols-2 gap-x-4 gap-y-3 pt-3 border-t border-[#333]">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3 pt-3 border-t border-[#333] mb-4">
                 <CheckboxControl label="開啟老虎機捲動" checked={settings.slotEffect} onChange={e => updateSetting('slotEffect', e.target.checked)} />
                 <Select label="結束樣式" value={settings.endStyle} onChange={e => updateSetting('endStyle', e.target.value)}>
                     <option value="image">定格於照片 (Images)</option>
@@ -190,7 +167,7 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
                 </Select>
             </div>
 
-            <div className="space-y-4 mt-4">
+            <div className="space-y-4">
                 <RangeControl label="1. 起始純色時間" min={0} max={3000} step={100} value={settings.solidBaseDuration} onChange={e => updateSetting('solidBaseDuration', parseFloat(e.target.value))} />
                 <RangeControl label="2. 主要動態時間" min={500} max={10000} step={100} value={settings.duration} onChange={e => updateSetting('duration', parseFloat(e.target.value))} />
                 <RangeControl label="3. 字元停止間隔" min={0} max={1000} step={10} value={settings.stagger} onChange={e => updateSetting('stagger', parseFloat(e.target.value))} />
@@ -198,9 +175,9 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
             </div>
         </ControlGroup>
 
-        <ControlGroup title="6. 字母映射設定 (CHAR MAPPING)">
+        <ControlGroup title="6. 字母映射 (CHAR MAPPING)">
             <div className="flex justify-between items-center mb-4">
-                <label className="text-[10px] uppercase text-gray-500 font-bold tracking-widest">逐字映射與預覽</label>
+                <label className="text-[10px] uppercase text-gray-500 font-bold tracking-widest">逐字映射預覽</label>
                 <div className="flex gap-2">
                     <button onClick={handleRandomizeImages} className="text-[9px] px-2 py-1 bg-[#222] border border-[#444] text-gray-400 rounded hover:text-white transition-all">🎲 隨機</button>
                     <button onClick={handleResetMappings} className="text-[9px] px-2 py-1 bg-red-900/10 border border-red-900/30 text-red-500 rounded hover:bg-red-600 hover:text-white transition-all">↺ 重設</button>
@@ -213,14 +190,13 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
                         <div className="p-3 flex items-center justify-between cursor-pointer hover:bg-white/5" onClick={() => setExpandedMapping(expandedMapping === i ? null : i)}>
                             <div className="flex items-center gap-4">
                                 <div className="w-8 h-8 bg-primary text-white font-black flex items-center justify-center rounded text-sm">{map.char}</div>
-                                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Character {i+1}</span>
+                                <span className="text-[10px] text-gray-400 font-bold uppercase">Character {i+1}</span>
                             </div>
                             <span className={`text-primary text-xs transition-transform ${expandedMapping === i ? 'rotate-180' : ''}`}>▼</span>
                         </div>
                         
                         {expandedMapping === i && (
                             <div className="p-4 bg-black/40 border-t border-[#333] flex flex-col items-center gap-5">
-                                {/* 200x200 高解析預覽視窗 */}
                                 <div className="w-[200px] h-[200px] shrink-0 bg-[#0a0a0a] border border-primary/40 rounded-lg overflow-hidden relative shadow-inner">
                                     {map.imgId && assets.find(a => a.id === map.imgId) ? (
                                         <div 
@@ -236,7 +212,7 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-[10px] text-gray-700 italic text-center p-6 uppercase tracking-widest">No Image Asset Assigned</div>
+                                        <div className="w-full h-full flex items-center justify-center text-[10px] text-gray-700 italic text-center p-6 uppercase tracking-widest font-bold">No Image</div>
                                     )}
                                 </div>
 
@@ -253,8 +229,7 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
                                         <CompactNumberInput label="X 軸偏移" min={-200} max={200} value={map.x} onChange={val => updateMapping(i, { x: val })} />
                                         <CompactNumberInput label="Y 軸偏移" min={-200} max={200} value={map.y} onChange={val => updateMapping(i, { y: val })} />
                                     </div>
-                                    
-                                    <CheckboxControl label="自適應高度 (Fit Height)" checked={map.fitHeight} onChange={e => updateMapping(i, { fitHeight: e.target.checked })} />
+                                    <CheckboxControl label="自適應高度" checked={map.fitHeight} onChange={e => updateMapping(i, { fitHeight: e.target.checked })} />
                                 </div>
                             </div>
                         )}
@@ -275,13 +250,13 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
                             updateSetting('audioUrl', null);
                             updateSetting('audioName', null);
                         }}
-                        className="w-full py-1.5 text-[9px] text-red-500 hover:text-white hover:bg-red-600/20 border border-red-900/30 rounded transition-all"
+                        className="w-full py-1.5 text-[9px] text-red-500 hover:text-white hover:bg-red-600/20 border border-red-900/30 rounded transition-all font-bold"
                     >
                         移除音樂 (REMOVE)
                     </button>
                 )}
-                <RangeControl label="音量大小" min={0} max={1} step={0.01} value={settings.volume} onChange={e => updateSetting('volume', parseFloat(e.target.value))} />
-                <CheckboxControl label="顯示音頻視覺化器 (Visualizer)" checked={settings.showVisualizer} onChange={e => updateSetting('showVisualizer', e.target.checked)} />
+                <RangeControl label="主音量控制" min={0} max={1} step={0.01} value={settings.volume} onChange={e => updateSetting('volume', parseFloat(e.target.value))} />
+                <CheckboxControl label="啟用音頻視覺化器" checked={settings.showVisualizer} onChange={e => updateSetting('showVisualizer', e.target.checked)} />
             </div>
         </ControlGroup>
 

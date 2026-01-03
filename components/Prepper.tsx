@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { PrepperImage, LibraryAsset } from '../types';
-import { ControlGroup, RangeControl, CheckboxControl, Button, TextInput, Select } from './Controls';
+import { ControlGroup, RangeControl, CheckboxControl, Button, TextInput, Select, CompactNumberInput } from './Controls';
 import { FONTS } from '../constants';
 
 interface PrepperProps {
@@ -27,11 +27,11 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
   const [maskText, setMaskText] = useState('MARVEL');
   const [maskSize, setMaskSize] = useState(15);
   const [showMask, setShowMask] = useState(true);
+  const [maskOpacity, setMaskOpacity] = useState(0.85); // 新增：遮罩透明度狀態
   const [slotMode, setSlotMode] = useState(true);
   const [selectedFont, setSelectedFont] = useState(font);
   const [isProcessing, setIsProcessing] = useState(false);
   
-  const [safeAreaRatio, setSafeAreaRatio] = useState<number>(0);
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef<{x: number, y: number} | null>(null);
 
@@ -67,7 +67,6 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
 
   useEffect(() => { loadLibrary(); }, []);
 
-  // --- NEW: Grouping Logic for Library ---
   const groupedLibrary = useMemo(() => {
       const groups: Record<string, LibraryAsset[]> = {};
       const today = new Date().toLocaleDateString('zh-TW');
@@ -84,23 +83,6 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
       });
       return groups;
   }, [library]);
-
-  const saveToLibrary = async (img: PrepperImage) => {
-    try {
-      const db = await getDB();
-      const tx = db.transaction('assets', 'readwrite');
-      const store = tx.objectStore('assets');
-      const asset: LibraryAsset = {
-        id: img.id,
-        name: img.name,
-        src: img.src,
-        timestamp: Date.now()
-      };
-      store.put(asset);
-      await new Promise(r => tx.oncomplete = r);
-      loadLibrary();
-    } catch (e) { console.error("Failed to save to library", e); }
-  };
 
   const saveAllToLibrary = async () => {
     if (images.length === 0) return;
@@ -119,7 +101,7 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
       });
       await new Promise(r => tx.oncomplete = r);
       loadLibrary();
-      alert(`已成功將 ${images.length} 張圖片存入雲端庫！`);
+      alert(`已成功將 ${images.length} 張圖片存入圖庫！`);
     } catch (e) { 
       console.error("Batch save failed", e); 
     } finally {
@@ -142,8 +124,15 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
     else scale = Math.max(CANVAS_WIDTH / w, CANVAS_HEIGHT / h);
     
     return {
-      scale: scale, x: 0, y: 0, rotation: 0, blur: isPort,
-      brightness: 1, contrast: 1, saturate: 1, vignette: 0,
+      scale: 100, 
+      x: 0, 
+      y: -50, 
+      rotation: 0, 
+      blur: isPort,
+      brightness: 1, 
+      contrast: 1, 
+      saturate: 1, 
+      vignette: 0,
     };
   };
 
@@ -247,8 +236,8 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
       const dy = currentPos.y - dragStart.current.y;
       const img = images.find(i => i.id === activeId);
       if (img) {
-          updateSetting('x', img.settings.x + dx);
-          updateSetting('y', img.settings.y + dy);
+          updateSetting('x', img.settings.x + (dx / 5)); 
+          updateSetting('y', img.settings.y + (dy / 5));
           dragStart.current = currentPos;
       }
   };
@@ -259,25 +248,14 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
       if (!activeId) return;
       const img = images.find(i => i.id === activeId);
       if (!img) return;
-      const pos = getMousePos(e);
       if (e.altKey) {
           const delta = e.deltaY > 0 ? 2 : -2;
           updateSetting('rotation', (img.settings.rotation || 0) + delta);
           return;
       }
       const oldScale = img.settings.scale;
-      const newScale = Math.max(0.01, Math.min(5, oldScale - (e.deltaY * 0.001)));
-      const w = img.originalWidth * oldScale;
-      const h = img.originalHeight * oldScale;
-      const tl_x = (CANVAS_WIDTH - w) / 2 + img.settings.x;
-      const tl_y = (CANVAS_HEIGHT - h) / 2 + img.settings.y;
-      const relX = (pos.x - tl_x) / w;
-      const relY = (pos.y - tl_y) / h;
-      const newW = img.originalWidth * newScale;
-      const newH = img.originalHeight * newScale;
-      const newX = (pos.x - (relX * newW)) - (CANVAS_WIDTH - newW) / 2;
-      const newY = (pos.y - (relY * newH)) - (CANVAS_HEIGHT - newH) / 2;
-      batchUpdateSettings({ scale: newScale, x: newX, y: newY });
+      const newScale = Math.max(10, Math.min(1000, oldScale - (e.deltaY * 0.1)));
+      updateSetting('scale', newScale);
   };
 
   const draw = useCallback(() => {
@@ -292,11 +270,15 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
     const img = new Image();
     img.src = activeImage.src;
     if (!img.complete) { img.onload = () => draw(); return; }
-    const { scale, x, y, rotation = 0, blur, brightness, contrast, saturate, vignette } = activeImage.settings;
+    
+    const scale = activeImage.settings.scale / 100;
+    const { x, y, rotation = 0, blur, brightness, contrast, saturate, vignette } = activeImage.settings;
+    
     const w = activeImage.originalWidth * scale;
     const h = activeImage.originalHeight * scale;
-    const centerX = (CANVAS_WIDTH/2) + x;
-    const centerY = (CANVAS_HEIGHT/2) + y;
+    const centerX = (CANVAS_WIDTH/2) + (x * 10); 
+    const centerY = (CANVAS_HEIGHT/2) + (y * 10);
+    
     const filter = `brightness(${brightness}) contrast(${contrast}) saturate(${saturate})`;
     if (blur) {
       ctx.save();
@@ -311,6 +293,7 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
     ctx.rotate((rotation * Math.PI) / 180);
     ctx.drawImage(img, -w/2, -h/2, w, h);
     ctx.restore();
+    
     if (vignette > 0) {
         ctx.save(); ctx.translate(centerX, centerY); ctx.rotate((rotation * Math.PI) / 180);
         const radius = Math.max(w, h) * 0.8;
@@ -318,8 +301,11 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
         grad.addColorStop(0, 'rgba(0,0,0,0)'); grad.addColorStop(1, `rgba(0,0,0,${vignette * 1.5})`);
         ctx.fillStyle = grad; ctx.fillRect(-w/2, -h/2, w, h); ctx.restore();
     }
+    
     if (showMask) {
-      ctx.save(); ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      ctx.save(); 
+      ctx.fillStyle = `rgba(0,0,0,${maskOpacity})`; // 使用動態透明度
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       ctx.globalCompositeOperation = 'destination-out';
       const fontSize = (CANVAS_WIDTH * maskSize) / 100;
       ctx.font = `900 ${fontSize}px ${selectedFont.split(',')[0]}`;
@@ -332,37 +318,15 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
       ctx.fillText(text, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
       ctx.restore();
     }
-  }, [images, activeId, showMask, maskText, maskSize, slotMode, selectedFont]);
+  }, [images, activeId, showMask, maskOpacity, maskText, maskSize, slotMode, selectedFont]);
 
   useEffect(() => { requestAnimationFrame(draw); }, [draw]);
 
   const handleTransfer = async () => {
     if (images.length === 0) return;
     setIsProcessing(true);
-    const blobs: string[] = [];
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if(!ctx) return;
-    for (const image of images) {
-        const img = new Image(); img.src = image.src;
-        await new Promise<void>(r => { if(img.complete) r(); else img.onload = () => r(); });
-        ctx.fillStyle = '#000'; ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-        const { scale, x, y, rotation = 0, blur, brightness, contrast, saturate, vignette } = image.settings;
-        const filter = `brightness(${brightness}) contrast(${contrast}) saturate(${saturate})`;
-        if (blur) {
-            ctx.save(); ctx.filter = `blur(40px) brightness(0.4) ${filter}`;
-            const bScale = Math.max(CANVAS_WIDTH / image.originalWidth, CANVAS_HEIGHT / image.originalHeight) * 1.2;
-            ctx.drawImage(img, (CANVAS_WIDTH - image.originalWidth * bScale) / 2, (CANVAS_HEIGHT - image.originalHeight * bScale) / 2, image.originalWidth * bScale, image.originalHeight * bScale);
-            ctx.restore();
-        }
-        ctx.save(); ctx.filter = filter; ctx.translate((CANVAS_WIDTH/2) + x, (CANVAS_HEIGHT/2) + y); ctx.rotate((rotation * Math.PI) / 180);
-        ctx.drawImage(img, -(image.originalWidth * scale)/2, -(image.originalHeight * scale)/2, image.originalWidth * scale, image.originalHeight * scale);
-        ctx.restore();
-        const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
-        if (blob) blobs.push(URL.createObjectURL(blob));
-    }
-    onTransfer(blobs.map(url => ({ url })), maskText, selectedFont);
+    const finalAssets = images.map(img => ({ url: img.src }));
+    onTransfer(finalAssets, maskText, selectedFont);
     setIsProcessing(false);
   };
 
@@ -370,10 +334,8 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
 
   return (
     <div className="flex w-full h-full">
-      {/* Sidebar */}
       <div className="w-[420px] bg-panel border-r border-border flex flex-col z-10">
         
-        {/* Tab Switcher */}
         <div className="flex bg-black/50 p-1 m-4 rounded-lg border border-white/5">
             <button 
                 onClick={() => setSidebarTab('current')}
@@ -392,44 +354,47 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
         <div className="flex-1 overflow-y-auto px-4 pb-4 custom-scrollbar">
             {sidebarTab === 'current' ? (
                 <>
-                    <ControlGroup title="1. 匯入與管理">
+                    <ControlGroup title="1. 素材序列與預覽">
+                        <div className="flex flex-col items-center gap-3 mb-4 pt-2">
+                             <div className="w-[200px] h-[200px] bg-[#0a0a0a] rounded-lg border border-primary relative overflow-hidden shadow-2xl">
+                                {activeImage ? (
+                                    <div 
+                                        className="w-full h-full bg-no-repeat transition-all"
+                                        style={{ 
+                                            backgroundImage: `url(${activeImage.src})`,
+                                            backgroundSize: `auto ${activeImage.settings.scale}%`,
+                                            backgroundPosition: `${50 + activeImage.settings.x}% ${50 + activeImage.settings.y}%`
+                                        }}
+                                    >
+                                        <div className="absolute inset-0 flex items-center justify-center text-white/5 font-black text-[150px] pointer-events-none" style={{ fontFamily: selectedFont }}>
+                                            {(maskText || 'M')[images.findIndex(i => i.id === activeId) % (maskText.length || 1)]}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-[10px] text-gray-700 font-bold uppercase tracking-widest text-center px-4">請選取素材以對比 1:1 槽位預覽</div>
+                                )}
+                             </div>
+                             <span className="text-[9px] text-gray-500 font-black tracking-widest uppercase">專業字元槽位對比 (Slot Preview)</span>
+                        </div>
+
                         <div className="grid grid-cols-2 gap-2 mb-4">
-                            <button onClick={() => fileInputRef.current?.click()} className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-700 rounded-lg hover:border-primary hover:bg-primary/5 transition-all text-gray-400 hover:text-white">
-                                <span className="text-sm font-bold">本地上傳</span>
+                            <button onClick={() => fileInputRef.current?.click()} className="flex flex-col items-center justify-center p-3 border border-dashed border-gray-700 rounded-lg hover:border-primary hover:bg-primary/5 transition-all text-gray-400 hover:text-white">
+                                <span className="text-[10px] font-bold">上傳素材</span>
                                 <input type="file" ref={fileInputRef} className="hidden" multiple accept="image/*" onChange={handleFileUpload} />
                             </button>
-                            <button onClick={() => setSidebarTab('library')} className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-700 rounded-lg hover:border-accent hover:bg-accent/5 transition-all text-gray-400 hover:text-white">
-                                <span className="text-sm font-bold">從庫中選取</span>
+                            <button onClick={() => setSidebarTab('library')} className="flex flex-col items-center justify-center p-3 border border-dashed border-gray-700 rounded-lg hover:border-accent hover:bg-accent/5 transition-all text-gray-400 hover:text-white">
+                                <span className="text-[10px] font-bold">從圖庫加入</span>
                             </button>
                         </div>
 
-                        {/* Batch Actions Bar */}
-                        {images.length > 0 && (
-                            <div className="flex items-center gap-2 mb-3 p-2 bg-black/40 rounded border border-white/5">
-                                <button 
-                                    onClick={saveAllToLibrary} 
-                                    className="flex-1 flex items-center justify-center gap-2 py-2 text-[10px] font-bold bg-accent/20 text-accent border border-accent/30 rounded hover:bg-accent hover:text-white transition-all"
-                                >
-                                    💾 全部存入雲端庫
-                                </button>
-                                <button 
-                                    onClick={() => { if(confirm('確定要清空目前的編輯序列嗎？')) setImages([]); }} 
-                                    className="flex items-center justify-center p-2 text-[10px] bg-red-900/20 text-red-500 border border-red-900/30 rounded hover:bg-red-600 hover:text-white transition-all"
-                                    title="清空序列"
-                                >
-                                    🗑️
-                                </button>
-                            </div>
-                        )}
-
-                        <div className="space-y-1 max-h-[120px] overflow-y-auto bg-black/30 p-2 rounded">
+                        <div className="space-y-1 max-h-[140px] overflow-y-auto bg-black/30 p-2 rounded border border-white/5">
                             {images.map((img, idx) => (
-                                <div key={img.id} className={`flex items-center justify-between p-2 rounded cursor-pointer ${activeId === img.id ? 'bg-primary/20 border border-primary/50' : 'hover:bg-white/5 text-gray-400'}`} onClick={() => setActiveId(img.id)}>
-                                    <span className="text-[10px] truncate max-w-[150px]">{idx+1}. {img.name}</span>
-                                    <div className="flex gap-1">
-                                        <button onClick={(e) => { e.stopPropagation(); saveToLibrary(img); }} className="p-1 hover:text-accent" title="存入圖庫">💾</button>
-                                        <button onClick={(e) => { e.stopPropagation(); setImages(prev => prev.filter(i => i.id !== img.id)); }} className="p-1 hover:text-red-500">✕</button>
+                                <div key={img.id} className={`flex items-center justify-between p-2 rounded cursor-pointer transition-colors ${activeId === img.id ? 'bg-primary/20 border border-primary/40' : 'hover:bg-white/5 text-gray-500'}`} onClick={() => setActiveId(img.id)}>
+                                    <div className="flex items-center gap-3">
+                                        <span className="w-4 h-4 bg-gray-800 text-[9px] flex items-center justify-center rounded text-gray-400">{idx+1}</span>
+                                        <span className="text-[10px] truncate max-w-[140px]">{img.name}</span>
                                     </div>
+                                    <button onClick={(e) => { e.stopPropagation(); setImages(prev => prev.filter(i => i.id !== img.id)); }} className="text-gray-600 hover:text-red-500 text-xs">✕</button>
                                 </div>
                             ))}
                         </div>
@@ -437,69 +402,88 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
 
                     {activeImage && (
                         <>
-                            <ControlGroup title="2. 構圖與變形">
-                                <RangeControl label="縮放" min={0.1} max={3} step={0.01} value={activeImage.settings.scale} onChange={e => updateSetting('scale', parseFloat(e.target.value))} />
-                                <RangeControl label="旋轉" min={-180} max={180} step={1} value={activeImage.settings.rotation} onChange={e => updateSetting('rotation', parseFloat(e.target.value))} />
-                                <CheckboxControl label="自動模糊背景" checked={activeImage.settings.blur} onChange={e => updateSetting('blur', e.target.checked)} />
-                            </ControlGroup>
-                            <ControlGroup title="3. 調色濾鏡">
-                                <div className="grid grid-cols-4 gap-1 mb-3">
-                                    {FILTER_PRESETS.map(p => <button key={p.label} onClick={() => batchUpdateSettings(p.settings)} className="text-[9px] py-1 bg-gray-800 rounded hover:bg-gray-700">{p.label.split(' ')[0]}</button>)}
+                            <ControlGroup title="2. 精確構圖 (COMPOSITION)">
+                                <div className="space-y-4">
+                                    <CompactNumberInput label="圖片縮放" min={10} max={1000} value={activeImage.settings.scale} onChange={val => updateSetting('scale', val)} suffix="%" />
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <CompactNumberInput label="X 軸偏移" min={-200} max={200} value={activeImage.settings.x} onChange={val => updateSetting('x', val)} />
+                                        <CompactNumberInput label="Y 軸偏移" min={-200} max={200} value={activeImage.settings.y} onChange={val => updateSetting('y', val)} />
+                                    </div>
+                                    <div className="pt-2">
+                                        <RangeControl label="旋轉角度" min={-180} max={180} value={activeImage.settings.rotation} onChange={e => updateSetting('rotation', parseFloat(e.target.value))} />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 pt-2">
+                                        <CheckboxControl label="自動背景模糊" checked={activeImage.settings.blur} onChange={e => updateSetting('blur', e.target.checked)} />
+                                        <CheckboxControl label="置中預覽引導" checked={showMask} onChange={e => setShowMask(e.target.checked)} />
+                                    </div>
+                                    {showMask && (
+                                        <div className="pt-2 border-t border-white/5">
+                                            <RangeControl label="遮罩透明度" min={0} max={1} step={0.01} value={maskOpacity} onChange={e => setMaskOpacity(parseFloat(e.target.value))} />
+                                        </div>
+                                    )}
                                 </div>
-                                <RangeControl label="對比度" min={0} max={2} step={0.05} value={activeImage.settings.contrast} onChange={e => updateSetting('contrast', parseFloat(e.target.value))} />
-                                <RangeControl label="飽和度" min={0} max={2} step={0.05} value={activeImage.settings.saturate} onChange={e => updateSetting('saturate', parseFloat(e.target.value))} />
+                            </ControlGroup>
+                            <ControlGroup title="3. 專業色彩 (COLOR)">
+                                <div className="grid grid-cols-4 gap-1 mb-3">
+                                    {FILTER_PRESETS.map(p => <button key={p.label} onClick={() => batchUpdateSettings(p.settings)} className="text-[8px] py-1 bg-gray-800 text-gray-400 rounded hover:bg-gray-700 hover:text-white transition-all uppercase">{p.label.split(' ')[0]}</button>)}
+                                </div>
+                                <div className="space-y-4">
+                                    <RangeControl label="對比度" min={0} max={2} step={0.05} value={activeImage.settings.contrast} onChange={e => updateSetting('contrast', parseFloat(e.target.value))} />
+                                    <RangeControl label="飽和度" min={0} max={2} step={0.05} value={activeImage.settings.saturate} onChange={e => updateSetting('saturate', parseFloat(e.target.value))} />
+                                </div>
                             </ControlGroup>
                         </>
                     )}
                 </>
             ) : (
                 <div className="space-y-6 pr-2">
-                    {/* Fix: Explicitly type assets to avoid 'unknown' errors */}
                     {Object.entries(groupedLibrary).map(([dateLabel, assets]: [string, LibraryAsset[]]) => (
                         <div key={dateLabel}>
-                            {/* Sticky Date Header */}
                             <div className="sticky top-0 z-20 flex items-center justify-between py-2 mb-3 bg-[#1e1e1e] border-b border-white/5">
-                                <h3 className="text-[10px] font-black text-gray-400 tracking-widest uppercase flex items-center gap-2">
+                                <h3 className="text-[9px] font-black text-gray-400 tracking-widest uppercase flex items-center gap-2">
                                     <span className="w-1.5 h-1.5 bg-primary rounded-full"></span>
                                     {dateLabel}
                                 </h3>
-                                <span className="text-[9px] bg-white/5 px-1.5 py-0.5 rounded text-gray-500">{assets.length} items</span>
+                                <span className="text-[9px] text-gray-600">{assets.length}</span>
                             </div>
-                            
-                            {/* Asset Grid for this date */}
                             <div className="grid grid-cols-3 gap-2">
                                 {assets.map((asset: LibraryAsset) => (
                                     <div key={asset.id} className="relative group aspect-square bg-[#111] rounded border border-gray-800 overflow-hidden cursor-pointer hover:border-primary transition-all">
                                         <img src={asset.src} className="w-full h-full object-cover opacity-60 group-hover:opacity-100" onClick={() => addFromLibrary(asset)} />
-                                        <div className="absolute top-0 right-0 p-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button onClick={() => removeFromLibrary(asset.id)} className="bg-red-600 text-white w-5 h-5 rounded-full text-[10px] flex items-center justify-center">✕</button>
-                                        </div>
+                                        <button onClick={(e) => { e.stopPropagation(); removeFromLibrary(asset.id); }} className="absolute top-1 right-1 bg-red-600/80 text-white w-4 h-4 rounded-full text-[8px] opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
                                     </div>
                                 ))}
                             </div>
                         </div>
                     ))}
-                    {library.length === 0 && <div className="col-span-3 text-center py-20 text-gray-600 text-xs">圖庫空空如也</div>}
+                    {library.length === 0 && <div className="text-center py-20 text-gray-600 text-[10px] uppercase font-bold tracking-widest">圖庫空空如也</div>}
                 </div>
             )}
         </div>
 
         <div className="p-4 bg-black/40 border-t border-border mt-auto">
-            <Button variant="primary" className="w-full py-3" onClick={handleTransfer} disabled={isProcessing || images.length === 0}>
-                {isProcessing ? '渲染中...' : '🚀 傳送到動畫導演'}
+            <Button variant="primary" className="w-full py-4 text-xs shadow-2xl" onClick={handleTransfer} disabled={isProcessing || images.length === 0}>
+                {isProcessing ? '渲染處理中...' : '🚀 傳送到動畫導演 (TRANSFER)'}
             </Button>
         </div>
       </div>
 
-      {/* Workspace */}
-      <div className="flex-1 bg-[#0d0d0d] flex items-center justify-center relative overflow-hidden bg-[radial-gradient(#222_1px,transparent_1px)] [background-size:20px_20px]">
-         <div className="relative shadow-2xl ring-1 ring-[#333]">
+      <div className="flex-1 bg-[#0d0d0d] flex items-center justify-center relative overflow-hidden bg-[radial-gradient(#222_1px,transparent_1px)] [background-size:30px_30px]">
+         <div className="relative shadow-2xl ring-1 ring-white/5">
             <canvas 
                 ref={canvasRef} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} 
-                className={`max-w-full max-h-[90vh] aspect-video block bg-[#111] ${activeId ? 'cursor-move' : ''}`}
+                className={`max-w-full max-h-[85vh] aspect-video block bg-black ${activeId ? 'cursor-move' : ''} shadow-[0_0_100px_rgba(0,0,0,0.5)]`}
                 onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} onWheel={handleWheel}
             />
-            {isProcessing && <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-50 text-white font-bold">處理中...</div>}
+            {isProcessing && <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-50 text-white font-bold text-sm tracking-widest animate-pulse">GENERATING PREVIEWS...</div>}
+            <div className="absolute bottom-5 left-5 bg-black/60 backdrop-blur px-3 py-1.5 rounded-full border border-white/10 flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                    <span className="text-[9px] text-gray-300 font-bold uppercase tracking-widest">Live Material Factory Preview</span>
+                </div>
+                <div className="h-3 w-px bg-white/10"></div>
+                <span className="text-[9px] text-gray-500 font-mono uppercase">1920x1080 Native Master</span>
+            </div>
          </div>
       </div>
     </div>
