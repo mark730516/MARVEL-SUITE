@@ -13,6 +13,26 @@ export const FONTS = [
 
 export const ANIMATION_PRESETS = [
   {
+    id: 'cinematic_pro',
+    label: '專業電影 (Cinematic Pro)',
+    settings: {
+      solidBaseDuration: 1200,
+      duration: 5000,
+      zoomDuration: 10000,
+      endHoldDuration: 2500,
+      stagger: 400,
+      speed: 60,
+      jitter: 3,
+      independentRoll: true,
+      startScale: 110,
+      slotEffect: true,
+      tilt: true,
+      chromaticAberration: true,
+      rimLight: 0.8,
+      filmGrain: true
+    }
+  },
+  {
     id: 'classic',
     label: '經典漫威 (Classic)',
     settings: {
@@ -28,45 +48,29 @@ export const ANIMATION_PRESETS = [
       slotEffect: true,
       tilt: false,
       endStyle: 'image',
-      offsetY: 0
+      chromaticAberration: false,
+      rimLight: 0,
+      filmGrain: false
     }
   },
   {
-    id: 'rapid',
-    label: '快節奏 (Rapid)',
+    id: 'glitch_action',
+    label: '動作故障 (Action Glitch)',
     settings: {
       solidBaseDuration: 500,
-      duration: 1500,
-      zoomDuration: 3000,
-      endHoldDuration: 1000,
-      stagger: 100,
-      speed: 40,
-      jitter: 8,
+      duration: 2000,
+      zoomDuration: 4000,
+      endHoldDuration: 1500,
+      stagger: 80,
+      speed: 30,
+      jitter: 15,
       independentRoll: true,
-      startScale: 150,
+      startScale: 140,
       slotEffect: true,
       tilt: true,
-      endStyle: 'image',
-      offsetY: 0
-    }
-  },
-  {
-    id: 'epic',
-    label: '史詩長鏡頭 (Epic)',
-    settings: {
-      solidBaseDuration: 2000,
-      duration: 6000,
-      zoomDuration: 12000,
-      endHoldDuration: 3000,
-      stagger: 800,
-      speed: 100,
-      jitter: 3,
-      independentRoll: false, 
-      startScale: 80,
-      slotEffect: true,
-      tilt: false,
-      endStyle: 'image',
-      offsetY: 0
+      chromaticAberration: true,
+      rimLight: 1,
+      scanlines: true
     }
   }
 ];
@@ -124,4 +128,9 @@ export const DEFAULT_INTRO_SETTINGS: IntroSettings = {
   audioName: null,
   volume: 0.8,
   showVisualizer: true,
+
+  chromaticAberration: false,
+  filmGrain: false,
+  rimLight: 0,
+  scanlines: false,
 };
