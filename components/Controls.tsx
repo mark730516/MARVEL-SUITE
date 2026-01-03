@@ -17,6 +17,36 @@ export const ControlGroup: React.FC<ControlGroupProps> = ({ title, children }) =
   </div>
 );
 
+export const CompactNumberInput: React.FC<{ 
+  label: string, 
+  value: number, 
+  onChange: (val: number) => void,
+  min?: number,
+  max?: number,
+  step?: number,
+  suffix?: string
+}> = ({ label, value, onChange, min, max, step = 1, suffix = "" }) => (
+  <div className="flex flex-col gap-1">
+    <label className="text-[9px] uppercase text-gray-500 tracking-wider font-bold">{label}</label>
+    <div className="flex items-center bg-[#111] rounded border border-[#333] overflow-hidden focus-within:border-primary transition-colors">
+      <input 
+        type="number" 
+        value={value} 
+        min={min}
+        max={max}
+        step={step}
+        onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+        className="bg-transparent text-[11px] text-white font-mono w-full px-2 py-1 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+      />
+      <div className="flex flex-col border-l border-[#333]">
+        <button onClick={() => onChange(value + step)} className="px-1.5 py-0.5 hover:bg-white/10 text-[8px] text-gray-400 border-b border-[#333]">▲</button>
+        <button onClick={() => onChange(value - step)} className="px-1.5 py-0.5 hover:bg-white/10 text-[8px] text-gray-400">▼</button>
+      </div>
+      {suffix && <span className="pr-2 text-[9px] text-gray-600 font-bold">{suffix}</span>}
+    </div>
+  </div>
+);
+
 interface RangeProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string;
 }

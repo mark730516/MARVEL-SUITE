@@ -26,7 +26,6 @@ export const IntroStage: React.FC<IntroStageProps> = ({
   const logoFrontRef = useRef<HTMLDivElement>(null);
   const logoShadowRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const rafVisualizerRef = useRef<number | null>(null);
   const [scaleFactor, setScaleFactor] = useState(1);
   const bassBoostRef = useRef(1);
 
@@ -45,7 +44,7 @@ export const IntroStage: React.FC<IntroStageProps> = ({
     return () => { obs.disconnect(); window.removeEventListener('resize', handleResize); };
   }, [cinemaMode]);
 
-  // 音效處理與視覺化連動
+  // 音效處理
   useEffect(() => {
     if (settings.audioUrl && isPlaying && manualTime === null) {
       if (!audioRef.current) { audioRef.current = new Audio(settings.audioUrl); }
@@ -112,13 +111,11 @@ export const IntroStage: React.FC<IntroStageProps> = ({
                 const charStopTime = spinEndTime + (i * settings.stagger);
                 const map = mappings[i] || { char: '', imgId: null, scale: 100, x: 0, y: 0, fitHeight: false, duration: 0 };
 
-                // Phase 1: 起始純色
                 if (t < spinStartTime) {
                     charEl.style.color = settings.textColor;
                     charEl.style.backgroundImage = 'none';
                     charEl.style.webkitBackgroundClip = 'initial';
                 } 
-                // Phase 3 & 4: 逐字停止與定格
                 else if (t >= charStopTime) {
                     if (settings.endStyle === 'solid') {
                         charEl.style.backgroundImage = 'none';
@@ -131,13 +128,12 @@ export const IntroStage: React.FC<IntroStageProps> = ({
                             charEl.style.webkitBackgroundClip = 'text';
                             charEl.style.color = 'transparent';
                             charEl.style.backgroundRepeat = 'no-repeat';
-                            // 對齊參數：確保計算與 IntroControls 預覽一致
+                            // 對齊參數：確保計算公式與預覽視窗邏輯 100% 一致
                             charEl.style.backgroundSize = map.fitHeight ? `auto ${map.scale}%` : `${map.scale}% auto`;
                             charEl.style.backgroundPosition = `${50 + map.x}% ${50 + map.y}%`;
                         }
                     }
                 } 
-                // Phase 2: 老虎機或隨機圖片
                 else {
                     let assetToUse: IntroAsset | null = null;
                     if (settings.slotEffect) {
@@ -193,12 +189,12 @@ export const IntroStage: React.FC<IntroStageProps> = ({
                 <div className="relative inline-block" style={{ transformStyle: 'preserve-3d' }}>
                     <div ref={logoShadowRef} className="absolute top-0 left-0 w-full h-full text-center z-[-1] pointer-events-none select-none whitespace-nowrap px-[0.1em]" style={{ fontFamily: settings.font, fontSize: mainFontSize, letterSpacing: `${settings.spacing}em`, color: 'transparent', textShadow: shadowStyle }}>
                         {settings.text.split('').map((c,i)=>(
-                          <span key={i} className="inline-flex items-center justify-center px-[0.1em] -mx-[0.1em]" style={{ lineHeight: 1 }}>{c}</span>
+                          <span key={i} className="inline-flex items-center justify-center px-[0.1em] -mx-[0.1em]" style={{ lineHeight: 1, height: '1.2em' }}>{c}</span>
                         ))}
                     </div>
                     <div ref={logoFrontRef} className="relative z-[2] inline-block text-center select-none whitespace-nowrap px-[0.1em]" style={{ fontFamily: settings.font, fontSize: mainFontSize, letterSpacing: `${settings.spacing}em`, backgroundColor: (isPlaying || typeof manualTime === 'number') ? 'transparent' : bgRgba }}>
                         {settings.text.split('').map((char, i) => (
-                            <span key={i} className="inline-flex items-center justify-center px-[0.1em] -mx-[0.1em] bg-no-repeat transition-filter duration-75" style={{ lineHeight: 1 }}>{char}</span>
+                            <span key={i} className="inline-flex items-center justify-center px-[0.1em] -mx-[0.1em] bg-no-repeat transition-filter duration-75" style={{ lineHeight: 1, height: '1.2em' }}>{char}</span>
                         ))}
                     </div>
                 </div>

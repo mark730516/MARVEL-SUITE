@@ -92,7 +92,13 @@ export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initi
                 newMappings.push({ ...existing, duration: defaultDuration });
             } else {
                 newMappings.push({
-                    char, imgId: defaultImgId, scale: 100, x: 0, y: 0, fitHeight: false, duration: defaultDuration
+                    char, 
+                    imgId: defaultImgId, 
+                    scale: 100, 
+                    x: 0, 
+                    y: -50, // 向上置中預設值 (50% - 50% = 0% top)
+                    fitHeight: false, 
+                    duration: defaultDuration
                 });
             }
         }

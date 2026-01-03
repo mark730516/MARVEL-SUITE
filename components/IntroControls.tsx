@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { IntroSettings, IntroAsset, CharMapping } from '../types';
-import { ControlGroup, RangeControl, CheckboxControl, TextInput, Select, Button, ColorControl } from './Controls';
+import { ControlGroup, RangeControl, CheckboxControl, TextInput, Select, Button, ColorControl, CompactNumberInput } from './Controls';
 import { FONTS, ANIMATION_PRESETS } from '../constants';
 
 interface IntroControlsProps {
@@ -44,13 +44,16 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
   const handleResetMappings = () => {
     mappings.forEach((_, i) => updateMapping(i, { 
         imgId: assets.length > 0 ? assets[i % assets.length].id : null,
-        scale: 100, x: 0, y: 0, fitHeight: false, duration: 0 
+        scale: 100, 
+        x: 0, 
+        y: -50, // 自動套用向上置中
+        fitHeight: false, 
+        duration: 0 
     }));
   };
 
   const currentT = manualTime ?? 0;
 
-  // 計算時間軸視覺條占比
   const timelineSegments = useMemo(() => {
     const p1 = settings.solidBaseDuration;
     const p2 = settings.duration;
@@ -160,22 +163,21 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
             </div>
             <div className="grid grid-cols-2 gap-4 mt-3">
                 <RangeControl label="進場縮放起點" min={50} max={200} value={settings.startScale} onChange={e => updateSetting('startScale', parseFloat(e.target.value))} />
-                <RangeControl label="邊緣閃耀" min={0} max={2} step={0.1} value={settings.rimLight} onChange={e => updateSetting('rimLight', parseFloat(e.target.value))} />
+                <RangeControl label="邊端閃耀" min={0} max={2} step={0.1} value={settings.rimLight} onChange={e => updateSetting('rimLight', parseFloat(e.target.value))} />
             </div>
         </ControlGroup>
 
         <ControlGroup title="5. 時間軸與動態規劃 (TIMELINE)">
-            {/* 彩色四階段視覺化進度條 */}
             <div className="mb-4">
                 <div className="flex justify-between items-center mb-1">
                     <span className="text-[9px] text-gray-500 font-black tracking-widest uppercase">Phase Visualization</span>
                     <span className="text-[9px] text-gray-500 font-mono">{(currentT / 1000).toFixed(2)}s</span>
                 </div>
                 <div className="h-2 w-full flex rounded-full overflow-hidden border border-black/50 shadow-inner mb-2">
-                    <div className="bg-gray-600" style={{ width: `${timelineSegments.p1}%` }} title="Phase 1: Solid"></div>
-                    <div className="bg-red-600" style={{ width: `${timelineSegments.p2}%` }} title="Phase 2: Action"></div>
-                    <div className="bg-orange-500" style={{ width: `${timelineSegments.p3}%` }} title="Phase 3: Stagger"></div>
-                    <div className="bg-green-600" style={{ width: `${timelineSegments.p4}%` }} title="Phase 4: Hold"></div>
+                    <div className="bg-gray-600" style={{ width: `${timelineSegments.p1}%` }}></div>
+                    <div className="bg-red-600" style={{ width: `${timelineSegments.p2}%` }}></div>
+                    <div className="bg-orange-500" style={{ width: `${timelineSegments.p3}%` }}></div>
+                    <div className="bg-green-600" style={{ width: `${timelineSegments.p4}%` }}></div>
                 </div>
                 <input type="range" className="w-full h-1.5 bg-[#222] rounded-lg appearance-none cursor-pointer accent-primary" min={0} max={totalDuration} step={10} value={currentT} onChange={(e) => onScrub(parseFloat(e.target.value))} />
             </div>
@@ -200,26 +202,26 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
             <div className="flex justify-between items-center mb-4">
                 <label className="text-[10px] uppercase text-gray-500 font-bold tracking-widest">逐字映射與預覽</label>
                 <div className="flex gap-2">
-                    <button onClick={handleRandomizeImages} className="text-[9px] px-2 py-1 bg-[#222] border border-[#444] text-gray-400 rounded hover:text-white transition-all">🎲 隨機分配</button>
+                    <button onClick={handleRandomizeImages} className="text-[9px] px-2 py-1 bg-[#222] border border-[#444] text-gray-400 rounded hover:text-white transition-all">🎲 隨機</button>
                     <button onClick={handleResetMappings} className="text-[9px] px-2 py-1 bg-red-900/10 border border-red-900/30 text-red-500 rounded hover:bg-red-600 hover:text-white transition-all">↺ 重設</button>
                 </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-4">
                 {mappings.map((map, i) => (
-                    <div key={i} className={`bg-[#181818] rounded-lg border overflow-hidden transition-all ${expandedMapping === i ? 'border-primary shadow-lg shadow-red-900/10' : 'border-[#333]'}`}>
+                    <div key={i} className={`bg-[#181818] rounded-xl border overflow-hidden transition-all ${expandedMapping === i ? 'border-primary shadow-2xl ring-1 ring-primary/20' : 'border-[#333]'}`}>
                         <div className="p-3 flex items-center justify-between cursor-pointer hover:bg-white/5" onClick={() => setExpandedMapping(expandedMapping === i ? null : i)}>
                             <div className="flex items-center gap-4">
                                 <div className="w-8 h-8 bg-primary text-white font-black flex items-center justify-center rounded text-sm">{map.char}</div>
-                                <span className="text-[10px] text-gray-400 font-bold uppercase">Character {i+1}</span>
+                                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Character {i+1}</span>
                             </div>
                             <span className={`text-primary text-xs transition-transform ${expandedMapping === i ? 'rotate-180' : ''}`}>▼</span>
                         </div>
                         
                         {expandedMapping === i && (
-                            <div className="p-4 bg-black/40 border-t border-[#333] flex gap-4">
-                                {/* 100x100 高解析預覽視窗 */}
-                                <div className="w-[100px] h-[100px] shrink-0 bg-[#111] border border-primary/30 rounded overflow-hidden relative group">
+                            <div className="p-4 bg-black/40 border-t border-[#333] flex flex-col items-center gap-5">
+                                {/* 200x200 高解析預覽視窗 */}
+                                <div className="w-[200px] h-[200px] shrink-0 bg-[#0a0a0a] border border-primary/40 rounded-lg overflow-hidden relative shadow-inner">
                                     {map.imgId && assets.find(a => a.id === map.imgId) ? (
                                         <div 
                                             className="w-full h-full bg-no-repeat transition-all"
@@ -229,28 +231,30 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
                                                 backgroundPosition: `${50 + map.x}% ${50 + map.y}%`
                                             }}
                                         >
-                                            {/* 預覽疊加字元遮罩 */}
-                                            <div className="absolute inset-0 flex items-center justify-center text-white/20 font-black text-6xl pointer-events-none select-none" style={{ fontFamily: settings.font }}>
+                                            <div className="absolute inset-0 flex items-center justify-center text-white/10 font-black text-[150px] pointer-events-none select-none" style={{ fontFamily: settings.font, lineHeight: 1 }}>
                                                 {map.char}
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-[9px] text-gray-700 italic text-center p-2 uppercase">No Asset Assigned</div>
+                                        <div className="w-full h-full flex items-center justify-center text-[10px] text-gray-700 italic text-center p-6 uppercase tracking-widest">No Image Asset Assigned</div>
                                     )}
                                 </div>
 
-                                <div className="flex-1 space-y-3">
+                                <div className="w-full space-y-4 px-2">
                                     <Select label="選擇映射素材" value={map.imgId || ''} onChange={e => updateMapping(i, { imgId: e.target.value || null })}>
-                                        <option value="">預設 (不分配)</option>
+                                        <option value="">預設 (空白)</option>
                                         {assets.map((a, idx) => <option key={a.id} value={a.id}>素材庫 #{idx + 1}</option>)}
                                     </Select>
-                                    <div className="grid grid-cols-1 gap-2">
-                                        <RangeControl label="圖片縮放" min={10} max={300} value={map.scale} onChange={e => updateMapping(i, { scale: parseFloat(e.target.value) })} />
-                                        <div className="flex items-center gap-4">
-                                            <RangeControl label="X 軸" className="flex-1" min={-100} max={100} value={map.x} onChange={e => updateMapping(i, { x: parseFloat(e.target.value) })} />
-                                            <RangeControl label="Y 軸" className="flex-1" min={-100} max={100} value={map.y} onChange={e => updateMapping(i, { y: parseFloat(e.target.value) })} />
+                                    
+                                    <div className="grid grid-cols-2 gap-x-3 gap-y-4">
+                                        <div className="col-span-2">
+                                            <CompactNumberInput label="圖片縮放" min={10} max={1000} value={map.scale} onChange={val => updateMapping(i, { scale: val })} suffix="%" />
                                         </div>
+                                        <CompactNumberInput label="X 軸偏移" min={-200} max={200} value={map.x} onChange={val => updateMapping(i, { x: val })} />
+                                        <CompactNumberInput label="Y 軸偏移" min={-200} max={200} value={map.y} onChange={val => updateMapping(i, { y: val })} />
                                     </div>
+                                    
+                                    <CheckboxControl label="自適應高度 (Fit Height)" checked={map.fitHeight} onChange={e => updateMapping(i, { fitHeight: e.target.checked })} />
                                 </div>
                             </div>
                         )}
@@ -259,9 +263,31 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
             </div>
         </ControlGroup>
 
+        <ControlGroup title="7. 音效與音樂 (AUDIO)">
+            <div className="space-y-4">
+                <label className="cursor-pointer bg-[#222] hover:bg-[#333] text-gray-400 text-[10px] py-2.5 px-3 rounded border border-[#444] block text-center truncate">
+                    {settings.audioUrl ? `🎵 ${settings.audioName}` : '📁 上傳背景音樂 (MP3/WAV)'}
+                    <input type="file" accept="audio/*" onChange={onUploadAudio} className="hidden" />
+                </label>
+                {settings.audioUrl && (
+                    <button 
+                        onClick={() => {
+                            updateSetting('audioUrl', null);
+                            updateSetting('audioName', null);
+                        }}
+                        className="w-full py-1.5 text-[9px] text-red-500 hover:text-white hover:bg-red-600/20 border border-red-900/30 rounded transition-all"
+                    >
+                        移除音樂 (REMOVE)
+                    </button>
+                )}
+                <RangeControl label="音量大小" min={0} max={1} step={0.01} value={settings.volume} onChange={e => updateSetting('volume', parseFloat(e.target.value))} />
+                <CheckboxControl label="顯示音頻視覺化器 (Visualizer)" checked={settings.showVisualizer} onChange={e => updateSetting('showVisualizer', e.target.checked)} />
+            </div>
+        </ControlGroup>
+
         <div className="mt-auto pt-6 space-y-3 pb-8">
             <Button variant="primary" className="w-full py-4 text-sm flex items-center justify-center gap-3 shadow-2xl active:scale-95" onClick={onPlay} disabled={isExporting}>
-                {isPlaying ? '⏹ 停止播放 (STOP)' : '▶ 開始播放序幕 (PLAY)'}
+                {isPlaying ? '⏹ 停止 (STOP)' : '▶ 播放 (PLAY)'}
             </Button>
             <div className="flex gap-2">
                 <Button className="flex-1 py-2.5" onClick={onSnapshot}>📷 截圖</Button>
