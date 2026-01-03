@@ -203,7 +203,7 @@ export const IntroStage: React.FC<IntroStageProps> = ({
                     </div>
                 </div>
                 {settings.subEnabled && (
-                    <div className="text-white uppercase text-center z-30 font-bebas" style={{ marginTop: `${settings.subMargin}%`, fontSize: subFontSize, letterSpacing: `${settings.subSpacing}em` }}>
+                    <div className="uppercase text-center z-30 font-bebas" style={{ color: settings.subColor, marginTop: `${settings.subMargin}%`, fontSize: subFontSize, letterSpacing: `${settings.subSpacing}em` }}>
                         {settings.subText}
                     </div>
                 )}

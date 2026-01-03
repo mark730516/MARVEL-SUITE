@@ -115,7 +115,10 @@ export const IntroControls: React.FC<IntroControlsProps> = ({
                          <RangeControl label="字體大小" min={1} max={20} step={0.1} value={settings.subSize} onChange={e => updateSetting('subSize', parseFloat(e.target.value))} />
                          <RangeControl label="字元間距" min={-0.2} max={1} step={0.01} value={settings.subSpacing} onChange={e => updateSetting('subSpacing', parseFloat(e.target.value))} />
                     </div>
-                    <RangeControl label="垂直邊距 (Margin Top)" min={-10} max={30} step={0.1} value={settings.subMargin} onChange={e => updateSetting('subMargin', parseFloat(e.target.value))} />
+                    <div className="grid grid-cols-2 gap-4 items-end">
+                        <RangeControl label="垂直邊距 (Margin Top)" min={-10} max={30} step={0.1} value={settings.subMargin} onChange={e => updateSetting('subMargin', parseFloat(e.target.value))} />
+                        <ColorControl label="副標題顏色" value={settings.subColor} onChange={val => updateSetting('subColor', val)} />
+                    </div>
                 </div>
             )}
         </ControlGroup>

@@ -93,6 +93,7 @@ export const DEFAULT_INTRO_SETTINGS: IntroSettings = {
   subSize: 5,
   subSpacing: 0.5,
   subMargin: 1,
+  subColor: '#ffffff', // 預設白色
   
   slotEffect: true,
   tilt: false,

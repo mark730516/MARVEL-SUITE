@@ -17,6 +17,7 @@ export interface IntroSettings {
   subSize: number;
   subSpacing: number;
   subMargin: number; 
+  subColor: string; // 新增副標題顏色
   
   // Motion
   slotEffect: boolean;
