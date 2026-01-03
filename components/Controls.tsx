@@ -17,6 +17,20 @@ export const ControlGroup: React.FC<ControlGroupProps> = ({ title, children }) =
   </div>
 );
 
+// Reset Button Component
+const ResetButton: React.FC<{ onClick?: () => void }> = ({ onClick }) => {
+    if (!onClick) return null;
+    return (
+        <button 
+            onClick={onClick} 
+            title="重置此數值 (Reset)"
+            className="ml-2 w-4 h-4 flex items-center justify-center text-[10px] text-gray-600 hover:text-primary hover:bg-primary/10 rounded transition-colors"
+        >
+            ↺
+        </button>
+    );
+};
+
 export const CompactNumberInput: React.FC<{ 
   label: string, 
   value: number, 
@@ -24,10 +38,14 @@ export const CompactNumberInput: React.FC<{
   min?: number,
   max?: number,
   step?: number,
-  suffix?: string
-}> = ({ label, value, onChange, min, max, step = 1, suffix = "" }) => (
+  suffix?: string,
+  onReset?: () => void
+}> = ({ label, value, onChange, min, max, step = 1, suffix = "", onReset }) => (
   <div className="flex flex-col gap-1">
-    <label className="text-[9px] uppercase text-gray-500 tracking-wider font-bold">{label}</label>
+    <div className="flex justify-between items-center">
+        <label className="text-[9px] uppercase text-gray-500 tracking-wider font-bold">{label}</label>
+        <ResetButton onClick={onReset} />
+    </div>
     <div className="flex items-center bg-[#111] rounded border border-[#333] overflow-hidden focus-within:border-primary transition-colors">
       <input 
         type="number" 
@@ -49,9 +67,10 @@ export const CompactNumberInput: React.FC<{
 
 interface RangeProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string;
+  onReset?: () => void;
 }
 
-export const RangeControl: React.FC<RangeProps> = ({ label, className, value, onChange, min, max, step, ...props }) => {
+export const RangeControl: React.FC<RangeProps> = ({ label, className, value, onChange, min, max, step, onReset, ...props }) => {
   const [localVal, setLocalVal] = useState(value);
 
   useEffect(() => {
@@ -67,7 +86,10 @@ export const RangeControl: React.FC<RangeProps> = ({ label, className, value, on
   return (
     <div className={`flex flex-col gap-1.5 ${className}`}>
       <div className="flex justify-between items-center">
-        <label className="text-[10px] uppercase text-gray-400 tracking-wider font-medium">{label}</label>
+        <div className="flex items-center">
+            <label className="text-[10px] uppercase text-gray-400 tracking-wider font-medium">{label}</label>
+            <ResetButton onClick={onReset} />
+        </div>
         <div className="bg-[#111] px-2 py-0.5 rounded border border-[#444] text-[10px] text-accent font-mono min-w-[40px] text-center">
           {localVal}
         </div>
@@ -108,19 +130,23 @@ export const ColorControl: React.FC<{ label: string, value: string, onChange: (v
 
 interface CheckboxProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string;
+  onReset?: () => void;
 }
 
-export const CheckboxControl: React.FC<CheckboxProps> = ({ label, className, ...props }) => (
-  <label className={`flex items-center gap-2 cursor-pointer group ${className}`}>
-    <div className="relative flex items-center justify-center">
-        <input type="checkbox" className="peer w-4 h-4 opacity-0 absolute cursor-pointer" {...props} />
-        <div className="w-4 h-4 border border-[#555] rounded bg-[#111] peer-checked:bg-primary peer-checked:border-primary transition-all"></div>
-        <svg className="absolute w-3 h-3 text-white opacity-0 peer-checked:opacity-100 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-        </svg>
-    </div>
-    <span className="text-[11px] text-gray-400 group-hover:text-gray-200 select-none transition-colors">{label}</span>
-  </label>
+export const CheckboxControl: React.FC<CheckboxProps> = ({ label, className, onReset, ...props }) => (
+  <div className="flex items-center justify-between">
+      <label className={`flex items-center gap-2 cursor-pointer group ${className}`}>
+        <div className="relative flex items-center justify-center">
+            <input type="checkbox" className="peer w-4 h-4 opacity-0 absolute cursor-pointer" {...props} />
+            <div className="w-4 h-4 border border-[#555] rounded bg-[#111] peer-checked:bg-primary peer-checked:border-primary transition-all"></div>
+            <svg className="absolute w-3 h-3 text-white opacity-0 peer-checked:opacity-100 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+            </svg>
+        </div>
+        <span className="text-[11px] text-gray-400 group-hover:text-gray-200 select-none transition-colors">{label}</span>
+      </label>
+      <ResetButton onClick={onReset} />
+  </div>
 );
 
 export const Button: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'danger' }> = ({ variant = 'secondary', className, children, ...props }) => {

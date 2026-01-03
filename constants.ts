@@ -90,10 +90,11 @@ export const DEFAULT_INTRO_SETTINGS: IntroSettings = {
   
   subEnabled: false,
   subText: 'STUDIOS',
+  subFont: '"Bebas Neue", sans-serif',
   subSize: 5,
   subSpacing: 0.5,
   subMargin: 1,
-  subColor: '#ffffff', // 預設白色
+  subColor: '#ffffff', 
   
   slotEffect: true,
   tilt: false,
@@ -119,6 +120,7 @@ export const DEFAULT_INTRO_SETTINGS: IntroSettings = {
   sceneBgColor: '#ffffff',
   sceneBgColor2: '#000000',
   sceneBgGradientDir: 'to bottom',
+  sceneBgOpacity: 1,
   bgImage: null,
   bgDimmer: 0.5,
   bgBlur: 0,

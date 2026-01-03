@@ -1,12 +1,13 @@
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { PrepperImage, LibraryAsset } from '../types';
-import { ControlGroup, RangeControl, CheckboxControl, Button, TextInput, Select, CompactNumberInput } from './Controls';
-import { FONTS } from '../constants';
+import { ControlGroup, RangeControl, CheckboxControl, Button, CompactNumberInput } from './Controls';
 
 interface PrepperProps {
-  onTransfer: (assets: { url: string }[], text: string, font: string) => void;
-  font: string;
+  onTransfer: (assets: { url: string }[]) => void;
+  globalText: string;
+  globalFont: string;
+  globalOpacity: number;
 }
 
 const CANVAS_WIDTH = 1920;
@@ -19,17 +20,19 @@ const FILTER_PRESETS = [
     { label: '復古 (Vintage)', settings: { brightness: 1.1, contrast: 0.9, saturate: 0.6, vignette: 0.3 } },
 ];
 
-export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
+export const Prepper: React.FC<PrepperProps> = ({ onTransfer, globalText, globalFont, globalOpacity }) => {
   const [images, setImages] = useState<PrepperImage[]>([]);
   const [library, setLibrary] = useState<LibraryAsset[]>([]);
   const [sidebarTab, setSidebarTab] = useState<'current' | 'library'>('current');
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [maskText, setMaskText] = useState('MARVEL');
-  const [maskSize, setMaskSize] = useState(15);
+  
+  // Mask settings are now derived from props
+  const maskText = globalText;
+  const maskSize = 15; // Fixed relative size or can be added to global if needed
+  const selectedFont = globalFont;
+  
   const [showMask, setShowMask] = useState(true);
-  const [maskOpacity, setMaskOpacity] = useState(0.85); // 新增：遮罩透明度狀態
   const [slotMode, setSlotMode] = useState(true);
-  const [selectedFont, setSelectedFont] = useState(font);
   const [isProcessing, setIsProcessing] = useState(false);
   
   const [isDragging, setIsDragging] = useState(false);
@@ -83,31 +86,6 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
       });
       return groups;
   }, [library]);
-
-  const saveAllToLibrary = async () => {
-    if (images.length === 0) return;
-    setIsProcessing(true);
-    try {
-      const db = await getDB();
-      const tx = db.transaction('assets', 'readwrite');
-      const store = tx.objectStore('assets');
-      images.forEach(img => {
-        store.put({
-          id: img.id,
-          name: img.name,
-          src: img.src,
-          timestamp: Date.now()
-        });
-      });
-      await new Promise(r => tx.oncomplete = r);
-      loadLibrary();
-      alert(`已成功將 ${images.length} 張圖片存入圖庫！`);
-    } catch (e) { 
-      console.error("Batch save failed", e); 
-    } finally {
-      setIsProcessing(false);
-    }
-  };
 
   const removeFromLibrary = async (id: string) => {
     const db = await getDB();
@@ -304,7 +282,7 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
     
     if (showMask) {
       ctx.save(); 
-      ctx.fillStyle = `rgba(0,0,0,${maskOpacity})`; // 使用動態透明度
+      ctx.fillStyle = `rgba(0,0,0,${globalOpacity})`; // 使用全域透明度
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       ctx.globalCompositeOperation = 'destination-out';
       const fontSize = (CANVAS_WIDTH * maskSize) / 100;
@@ -318,7 +296,7 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
       ctx.fillText(text, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
       ctx.restore();
     }
-  }, [images, activeId, showMask, maskOpacity, maskText, maskSize, slotMode, selectedFont]);
+  }, [images, activeId, showMask, globalOpacity, maskText, maskSize, slotMode, selectedFont]);
 
   useEffect(() => { requestAnimationFrame(draw); }, [draw]);
 
@@ -326,7 +304,7 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
     if (images.length === 0) return;
     setIsProcessing(true);
     const finalAssets = images.map(img => ({ url: img.src }));
-    onTransfer(finalAssets, maskText, selectedFont);
+    onTransfer(finalAssets);
     setIsProcessing(false);
   };
 
@@ -416,11 +394,7 @@ export const Prepper: React.FC<PrepperProps> = ({ onTransfer, font }) => {
                                         <CheckboxControl label="自動背景模糊" checked={activeImage.settings.blur} onChange={e => updateSetting('blur', e.target.checked)} />
                                         <CheckboxControl label="置中預覽引導" checked={showMask} onChange={e => setShowMask(e.target.checked)} />
                                     </div>
-                                    {showMask && (
-                                        <div className="pt-2 border-t border-white/5">
-                                            <RangeControl label="遮罩透明度" min={0} max={1} step={0.01} value={maskOpacity} onChange={e => setMaskOpacity(parseFloat(e.target.value))} />
-                                        </div>
-                                    )}
+                                    {/* 遮罩透明度已移至 Tab 3，此處移除以避免重複 */}
                                 </div>
                             </ControlGroup>
                             <ControlGroup title="3. 專業色彩 (COLOR)">

@@ -9,12 +9,13 @@ import html2canvas from 'html2canvas';
 
 interface IntroProps {
   importedAssets: { url: string }[],
-  initialText: string;
-  initialFont: string;
+  globalText: string;
+  globalFont: string;
+  globalOpacity: number;
   cinemaMode?: boolean;
 }
 
-export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initialFont, cinemaMode = false }) => {
+export const Intro: React.FC<IntroProps> = ({ importedAssets, globalText, globalFont, globalOpacity, cinemaMode = false }) => {
   const [settings, setSettings] = useState<IntroSettings>(DEFAULT_INTRO_SETTINGS);
   const [assets, setAssets] = useState<IntroAsset[]>([]);
   const [mappings, setMappings] = useState<CharMapping[]>([]);
@@ -22,6 +23,16 @@ export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initi
   const [isExporting, setIsExporting] = useState(false);
   const [manualTime, setManualTime] = useState<number | null>(null);
   const [isWireframe, setIsWireframe] = useState(false);
+
+  // Sync Global State
+  useEffect(() => {
+    setSettings(prev => ({
+        ...prev,
+        text: globalText,
+        font: globalFont,
+        bgOpacity: globalOpacity
+    }));
+  }, [globalText, globalFont, globalOpacity]);
 
   // Calculate total duration for the scrubber
   const totalDuration = useMemo(() => {
@@ -39,16 +50,9 @@ export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initi
     }
   }, [importedAssets]);
 
-  // Sync settings if props change
-  useEffect(() => {
-      if(initialText && initialText !== 'MARVEL') setSettings(s => ({ ...s, text: initialText }));
-      if(initialFont) setSettings(s => ({ ...s, font: initialFont }));
-  }, [initialText, initialFont]);
-
   // Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger if user is typing in an input
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') {
         return;
@@ -57,7 +61,7 @@ export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initi
       const key = e.key.toLowerCase();
       
       if (key === 'p' || key === ' ') {
-        e.preventDefault(); // Prevent space from scrolling
+        e.preventDefault(); 
         handlePlayToggle();
       } else if (key === 'w') {
         setIsWireframe(prev => !prev);
@@ -96,7 +100,7 @@ export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initi
                     imgId: defaultImgId, 
                     scale: 100, 
                     x: 0, 
-                    y: -50, // 向上置中預設值 (50% - 50% = 0% top)
+                    y: -50, 
                     fitHeight: false, 
                     duration: defaultDuration
                 });

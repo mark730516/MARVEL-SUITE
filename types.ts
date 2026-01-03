@@ -14,10 +14,11 @@ export interface IntroSettings {
   
   subEnabled: boolean;
   subText: string;
+  subFont: string; // 新增副標題字體
   subSize: number;
   subSpacing: number;
   subMargin: number; 
-  subColor: string; // 新增副標題顏色
+  subColor: string;
   
   // Motion
   slotEffect: boolean;
@@ -43,10 +44,11 @@ export interface IntroSettings {
   offsetY: number; 
 
   // Scene
-  sceneBgType: 'solid' | 'gradient'; 
+  sceneBgType: 'solid' | 'gradient' | 'transparent'; 
   sceneBgColor: string; 
   sceneBgColor2: string; 
   sceneBgGradientDir: string; 
+  sceneBgOpacity: number; // New: Background opacity
   bgImage: string | null;
   bgDimmer: number;
   bgBlur: number; 
