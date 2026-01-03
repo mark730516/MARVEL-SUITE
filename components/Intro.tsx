@@ -45,6 +45,29 @@ export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initi
       if(initialFont) setSettings(s => ({ ...s, font: initialFont }));
   }, [initialText, initialFont]);
 
+  // Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing in an input
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') {
+        return;
+      }
+
+      const key = e.key.toLowerCase();
+      
+      if (key === 'p' || key === ' ') {
+        e.preventDefault(); // Prevent space from scrolling
+        handlePlayToggle();
+      } else if (key === 'w') {
+        setIsWireframe(prev => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isPlaying, isWireframe]);
+
   // Update mappings when text, assets, or global timing settings change
   useEffect(() => {
     setMappings(prev => {
@@ -84,7 +107,7 @@ export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initi
   const handleApplyPreset = (presetSettings: Partial<IntroSettings>) => {
     setSettings(prev => ({
       ...prev, ...presetSettings,
-      text: prev.text, font: prev.font, bgImage: prev.bgImage, audioUrl: prev.audioUrl,
+      text: prev.text, font: prev.font, bgImage: prev.bgImage, audioUrl: prev.audioUrl, audioName: prev.audioName
     }));
   };
 
@@ -98,6 +121,17 @@ export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initi
           const newAssets = files.map(f => ({ id: Math.random().toString(36).substr(2, 9), url: URL.createObjectURL(f) }));
           setAssets(prev => [...prev, ...newAssets]);
       }
+  };
+
+  const handleUploadAudio = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+        setSettings(s => ({
+            ...s, 
+            audioUrl: URL.createObjectURL(file),
+            audioName: `自訂音效: ${file.name}`
+        }));
+    }
   };
 
   const handleSnapshot = async () => {
@@ -159,14 +193,13 @@ export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initi
 
   const handlePlayToggle = () => {
       if (!isPlaying) {
-          setManualTime(null); // Reset manual override to start from 0 automatically
+          setManualTime(null);
       }
       setIsPlaying(!isPlaying);
   };
 
   return (
     <div className="flex w-full h-full relative group/container">
-        {/* Sidebar Controls - Hide in Cinema Mode */}
         {!cinemaMode && (
             <IntroControls 
                 settings={settings}
@@ -179,7 +212,7 @@ export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initi
                 onClearAssets={() => setAssets([])}
                 onRemoveAsset={(id) => setAssets(prev => prev.filter(a => a.id !== id))}
                 onUploadBg={(e) => e.target.files?.[0] && setSettings(s => ({...s, bgImage: URL.createObjectURL(e.target.files![0])}))}
-                onUploadAudio={(e) => e.target.files?.[0] && setSettings(s => ({...s, audioUrl: URL.createObjectURL(e.target.files![0])}))}
+                onUploadAudio={handleUploadAudio}
                 onPlay={handlePlayToggle}
                 onSnapshot={handleSnapshot}
                 onExportGif={handleExportGif}
@@ -207,7 +240,6 @@ export const Intro: React.FC<IntroProps> = ({ importedAssets, initialText, initi
                     cinemaMode={cinemaMode}
             />
             
-            {/* Cinema Mode Controls Overlay */}
             {cinemaMode && (
                 <div className="absolute inset-0 z-50 pointer-events-none flex flex-col items-center justify-center">
                     {!isPlaying && (

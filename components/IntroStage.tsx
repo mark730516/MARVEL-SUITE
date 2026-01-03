@@ -26,9 +26,18 @@ export const IntroStage: React.FC<IntroStageProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const logoFrontRef = useRef<HTMLDivElement>(null);
   const logoShadowRef = useRef<HTMLDivElement>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   
+  // Audio Visualizer Refs
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const rafVisualizerRef = useRef<number | null>(null);
+  
+  // States and Refs for visualization
+  const [audioData, setAudioData] = useState<Uint8Array>(new Uint8Array(0));
   const [scale, setScale] = useState(1);
+  const bassBoostRef = useRef(1); // Use Ref to prevent animation restart
 
   // Auto-scale logic
   useEffect(() => {
@@ -36,25 +45,16 @@ export const IntroStage: React.FC<IntroStageProps> = ({
         if (wrapperRef.current) {
             const { clientWidth, clientHeight } = wrapperRef.current;
             if (clientWidth === 0 || clientHeight === 0) return;
-            // Fits 1920x1080 into the container while maintaining aspect ratio
             const sX = clientWidth / 1920;
             const sY = clientHeight / 1080;
             setScale(Math.min(sX, sY));
         }
     };
-    
-    // Initial calculation
     handleResize();
-
-    // Use ResizeObserver for container size changes
     const observer = new ResizeObserver(handleResize);
     if (wrapperRef.current) observer.observe(wrapperRef.current);
-
-    // Also listen to window resize (helps with orientation changes on mobile)
     window.addEventListener('resize', handleResize);
-    // Double check shortly after mount/resize for mobile UI transitions
     const timeout = setTimeout(handleResize, 300);
-
     return () => {
         observer.disconnect();
         window.removeEventListener('resize', handleResize);
@@ -62,16 +62,73 @@ export const IntroStage: React.FC<IntroStageProps> = ({
     };
   }, [cinemaMode]);
 
-  // Basic Audio Handling (Previous Version)
+  // Web Audio API Setup & Visualizer Loop
   useEffect(() => {
     if (settings.audioUrl && isPlaying && manualTime === null) {
-      if (!audioRef.current) audioRef.current = new Audio(settings.audioUrl);
-      audioRef.current.volume = settings.volume;
-      audioRef.current.play().catch(() => {});
-    } else if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
+      if (!audioRef.current) {
+        audioRef.current = new Audio(settings.audioUrl);
+        audioRef.current.crossOrigin = "anonymous";
+      } else if (audioRef.current.src !== settings.audioUrl) {
+        audioRef.current.src = settings.audioUrl;
+      }
+
+      const audio = audioRef.current;
+      audio.volume = settings.volume;
+
+      if (!audioCtxRef.current) {
+        const AudioContextClass = (window.AudioContext || (window as any).webkitAudioContext);
+        const ctx = new AudioContextClass();
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 256;
+        const source = ctx.createMediaElementSource(audio);
+        source.connect(analyser);
+        analyser.connect(ctx.destination);
+        
+        audioCtxRef.current = ctx;
+        analyserRef.current = analyser;
+        sourceRef.current = source;
+      }
+
+      if (audioCtxRef.current.state === 'suspended') {
+        audioCtxRef.current.resume();
+      }
+
+      audio.play().catch(() => {});
+
+      const bufferLength = analyserRef.current!.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+
+      const updateVisualizer = () => {
+        if (!analyserRef.current) return;
+        analyserRef.current.getByteFrequencyData(dataArray);
+        
+        // Update UI bars state
+        setAudioData(new Uint8Array(dataArray));
+
+        // Update Bass Boost Ref (doesn't trigger re-render of effect)
+        const bassSum = dataArray.slice(0, 5).reduce((a, b) => a + b, 0);
+        const avgBass = bassSum / 5;
+        bassBoostRef.current = 1 + (avgBass / 255) * 0.05;
+
+        rafVisualizerRef.current = requestAnimationFrame(updateVisualizer);
+      };
+      updateVisualizer();
+
+    } else {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+      if (rafVisualizerRef.current) {
+        cancelAnimationFrame(rafVisualizerRef.current);
+      }
+      setAudioData(new Uint8Array(0));
+      bassBoostRef.current = 1;
     }
+
+    return () => {
+      if (rafVisualizerRef.current) cancelAnimationFrame(rafVisualizerRef.current);
+    };
   }, [isPlaying, settings.audioUrl, settings.volume, manualTime]);
 
   // Tilt Logic
@@ -176,7 +233,7 @@ export const IntroStage: React.FC<IntroStageProps> = ({
       charEl.style.backgroundClip = 'border-box';
   };
 
-  const applyBackgroundToChar = (charEl: HTMLElement, assetUrl: string, map: CharMapping | null, t = 0) => {
+  const applyBackgroundToChar = (charEl: HTMLElement, assetUrl: string, map: CharMapping | null) => {
       if (isWireframe) { applyWireframeToChar(charEl, true); return; }
       charEl.style.border = 'none';
       charEl.style.backgroundImage = `url('${assetUrl}')`;
@@ -240,7 +297,9 @@ export const IntroStage: React.FC<IntroStageProps> = ({
         const startS = settings.startScale / 100;
         const rawProgress = Math.min(Math.max(t / settings.zoomDuration, 0), 1);
         const easedProgress = easeOutExpo(rawProgress);
-        const currentScale = startS + (1 - startS) * easedProgress;
+        
+        // Read bassBoost from Ref to ensure it doesn't cause loop reset
+        const currentScale = (startS + (1 - startS) * easedProgress) * bassBoostRef.current;
         const transform = `translateY(${settings.offsetY}px) scale(${currentScale})`;
 
         if(logoFrontRef.current) logoFrontRef.current.style.transform = transform;
@@ -351,6 +410,34 @@ export const IntroStage: React.FC<IntroStageProps> = ({
                 />
                 <div className="absolute inset-0 z-[5] bg-black pointer-events-none" style={{ opacity: settings.bgDimmer }} />
                 {settings.halftone && <div className="absolute inset-0 z-[15] pointer-events-none opacity-30 bg-[radial-gradient(circle,#000_1px,transparent_1.2px)] [background-size:4px_4px]" />}
+                
+                {/* Audio Visualizer Overlay */}
+                {settings.showVisualizer && audioData.length > 0 && (
+                    <div className="absolute bottom-0 left-0 w-full h-[150px] flex items-end justify-center gap-[2px] pointer-events-none opacity-40 z-10 px-10">
+                        {Array.from(audioData.slice(0, 48)).map((val, i) => (
+                            <div 
+                                key={i} 
+                                className="w-[6px] bg-primary rounded-t-sm transition-all duration-75" 
+                                style={{ 
+                                    height: `${(Number(val) / 255) * 100}%`,
+                                    backgroundColor: (i % 2 === 0) ? settings.textColor : '#fff',
+                                    boxShadow: `0 0 10px ${settings.textColor}`
+                                }} 
+                            />
+                        ))}
+                        {[...Array.from(audioData.slice(0, 48))].reverse().map((val, i) => (
+                            <div 
+                                key={`m-${i}`} 
+                                className="w-[6px] bg-primary rounded-t-sm transition-all duration-75" 
+                                style={{ 
+                                    height: `${(Number(val) / 255) * 100}%`,
+                                    backgroundColor: (i % 2 === 0) ? settings.textColor : '#fff',
+                                    boxShadow: `0 0 10px ${settings.textColor}`
+                                }} 
+                            />
+                        ))}
+                    </div>
+                )}
             </>
         )}
 

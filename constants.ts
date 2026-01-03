@@ -1,3 +1,4 @@
+
 import { IntroSettings } from './types';
 
 export const FONTS = [
@@ -22,7 +23,7 @@ export const ANIMATION_PRESETS = [
       stagger: 300,
       speed: 80,
       jitter: 5,
-      independentRoll: false, // Unified looks better for classic
+      independentRoll: false,
       startScale: 100,
       slotEffect: true,
       tilt: false,
@@ -41,7 +42,7 @@ export const ANIMATION_PRESETS = [
       stagger: 100,
       speed: 40,
       jitter: 8,
-      independentRoll: true, // Independent looks chaotic and fast
+      independentRoll: true,
       startScale: 150,
       slotEffect: true,
       tilt: true,
@@ -95,17 +96,16 @@ export const DEFAULT_INTRO_SETTINGS: IntroSettings = {
   tiltAngleX: 0,
   tiltAngleY: 0,
   
-  // Revised Defaults based on user request
-  solidBaseDuration: 1000, // 1s Solid
-  duration: 5000,          // 5s Spinning
-  stagger: 500,            // Slow stop
-  zoomDuration: 8000,      // Slow zoom
+  solidBaseDuration: 1000,
+  duration: 5000,
+  stagger: 500,
+  zoomDuration: 8000,
   endHoldDuration: 2000,
   
   startStyle: 'solid',
   endStyle: 'image',
   speed: 80,
-  independentRoll: false, // Default to Unified Mask mode (False)
+  independentRoll: false,
   jitter: 5,
   startScale: 100,
   offsetY: 0,
@@ -119,6 +119,9 @@ export const DEFAULT_INTRO_SETTINGS: IntroSettings = {
   bgBlur: 0,
   halftone: false,
   cineBars: false,
+  
   audioUrl: null,
-  volume: 1,
+  audioName: null,
+  volume: 0.8,
+  showVisualizer: true,
 };

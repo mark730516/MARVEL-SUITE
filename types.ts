@@ -101,6 +101,10 @@ export interface IntroSettings {
   bgBlur: number; // Background blur intensity
   halftone: boolean;
   cineBars: boolean;
+  
+  // Audio
   audioUrl: string | null;
+  audioName: string | null;
   volume: number;
+  showVisualizer: boolean;
 }
